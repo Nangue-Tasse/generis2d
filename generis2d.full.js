@@ -11162,6 +11162,7 @@ GameEngineClass = Class.extend({
 SceneEngineClass = Class.extend({
    
 	entities: {},
+   entitiesList: [],
    cameras:{},
    activeCamera:null,
    lights:{},
@@ -11277,6 +11278,7 @@ SceneEngineClass = Class.extend({
    new: function(type, params) {
    		switch(type.toLowerCase()) {
             case "camera":
+               var params = params || {};
                if(!params.id){
                   var today = new Date(); 
                     var t = today.getHours(); // => 9
@@ -11335,10 +11337,11 @@ SceneEngineClass = Class.extend({
 					id: params.id,
 					bodies: params.bodies, 
 					idleBody: params.idleBody,
-					zIndex: params.zIndex||0
+					zIndex: params.zIndex
 				};
 		        var entity = new (this.factory['Entity'])( this.id, params );
 		        this.entities[params.id] = entity;  
+              this.entitiesList.push(params.id); 
 		        return entity;
 		    
 		    case "event":
@@ -11384,6 +11387,20 @@ SceneEngineClass = Class.extend({
    			case "gravity":
    				this.Physics.world.SetGravity(new b2Vec2(params.x, params.y));
    				break;
+            case "sort": 
+               var This=this;
+               var params = params||{};
+               this.entitiesList.sort(function(entityA,entityB) {  
+                  var A = This.entities[entityA].zIndex;
+                  var B = This.entities[entityB].zIndex; 
+                  var sort=0;
+                  if(params.sort){
+                     sort=params.sort(entityA,entityB);
+                  } else if(params.paramsType=="decend") sort = B-A;
+                  else sort = A-B;
+                  return sort; 
+               }); 
+               break;
    		}
    },
 
@@ -11463,7 +11480,10 @@ SceneEngineClass = Class.extend({
 
 		this.Physics.update();   
       this.Renderer.screenRefresh();
-		this.Physics.world.DrawDebugData(); 
+
+		//this.Physics.world.DrawDebugData(); 
+      this.DrawDebugData(); 
+
       for (var camera in this.cameras) {
          this.cameras[camera].update(); 
       };  
@@ -11474,13 +11494,141 @@ SceneEngineClass = Class.extend({
     	  };    
     }, 
 
+    DrawDebugData: function () {
+      if (this.Physics.world.m_debugDraw == null) {
+         return;
+      }
+      this.Physics.world.m_debugDraw.m_sprite.graphics.clear();
+      var flags = this.Physics.world.m_debugDraw.GetFlags();
+      var i = 0;
+      var b;
+      var f;
+      var s;
+      var j;
+      var bp;
+      var invQ = new b2Vec2;
+      var x1 = new b2Vec2;
+      var x2 = new b2Vec2;
+      var xf;
+      var b1 = new b2AABB();
+      var b2 = new b2AABB();
+      var vs = [new b2Vec2(), new b2Vec2(), new b2Vec2(), new b2Vec2()];
+      var color = new b2Color(0, 0, 0);
+      if (flags & b2DebugDraw.e_shapeBit) {
+
+         for (var ent_i=0; ent_i<this.entitiesList.length; ent_i++) {
+            var b = this.entities[this.entitiesList[ent_i]].body;
+           if(!b.eDebugDraw && b.GetUserData()) {
+            try { 
+               var scene = G.scenes[b.GetUserData().sceneId];
+               var entity = scene.entities[b.GetUserData().id]; 
+               if(!scene.activeCamera) return;
+               if(entity.position.x + entity.size.width < scene.cameras[scene.activeCamera].position.x) continue; 
+               if(entity.position.y + entity.size.height < scene.cameras[scene.activeCamera].position.y) continue;
+               if(entity.position.x - entity.size.width/2 > scene.cameras[scene.activeCamera].position.x + scene.cameras[scene.activeCamera].size.width) continue;
+               if(entity.position.y - entity.size.height/2 > scene.cameras[scene.activeCamera].position.y + scene.cameras[scene.activeCamera].size.height) continue;
+               var ctx = this.Physics.world.m_debugDraw.m_ctx;
+                  var e = entity.eventListeners.draw;
+               if(e) for (var i = 0; i < e.length; i++) {
+                  e[i].pre(ctx,null,null,null,null,null,entity.position.x,entity.position.y,entity.size.width,entity.size.height);
+               };   
+                  if(b.eDraw) {
+                     b.draw(ctx);
+                  }
+               if(e) for (var i = 0; i < e.length; i++) {
+                  e[i].post(ctx,null,null,null,null,null,entity.position.x,entity.position.y,entity.size.width,entity.size.height);
+               };   
+                  continue;
+            } catch(e) {}
+           }
+               
+            xf = b.m_xf;
+            for (f = b.GetFixtureList();
+            f; f = f.m_next) {
+               s = f.GetShape();
+               if (b.IsActive() == false) {
+                  color.Set(0.5, 0.5, 0.3);
+                  this.Physics.world.DrawShape(s, xf, color, b);
+               }
+               else if (b.GetType() == b2Body.b2_staticBody) {
+                  color.Set(0.5, 0.9, 0.5);
+                  this.Physics.world.DrawShape(s, xf, color, b);
+               }
+               else if (b.GetType() == b2Body.b2_kinematicBody) {
+                  color.Set(0.5, 0.5, 0.9);
+                  this.Physics.world.DrawShape(s, xf, color, b);
+               }
+               else if (b.IsAwake() == false) {
+                  color.Set(0.6, 0.6, 0.6);
+                  this.Physics.world.DrawShape(s, xf, color, b);
+               }
+               else {
+                  color.Set(0.9, 0.7, 0.7);
+                  this.Physics.world.DrawShape(s, xf, color, b);
+               }
+            }
+         }
+      }
+      if (flags & b2DebugDraw.e_jointBit) {
+         for (j = this.Physics.world.m_jointList;
+         j; j = j.m_next) {
+            this.Physics.world.DrawJoint(j);
+         }
+      }
+      if (flags & b2DebugDraw.e_controllerBit) {
+         for (var c = this.Physics.world.m_controllerList; c; c = c.m_next) {
+            c.Draw(this.Physics.world.m_debugDraw);
+         }
+      }
+      if (flags & b2DebugDraw.e_pairBit) {
+         color.Set(0.3, 0.9, 0.9);
+         for (var contact = this.Physics.world.m_contactManager.m_contactList; contact; contact = contact.GetNext()) {
+            var fixtureA = contact.GetFixtureA();
+            var fixtureB = contact.GetFixtureB();
+            var cA = fixtureA.GetAABB().GetCenter();
+            var cB = fixtureB.GetAABB().GetCenter();
+            this.Physics.world.m_debugDraw.DrawSegment(cA, cB, color);
+         }
+      }
+      if (flags & b2DebugDraw.e_aabbBit) {
+         bp = this.Physics.world.m_contactManager.m_broadPhase;
+         vs = [new b2Vec2(), new b2Vec2(), new b2Vec2(), new b2Vec2()];
+         for (b = this.Physics.world.m_bodyList;
+         b; b = b.GetNext()) {
+            if (b.IsActive() == false) {
+               continue;
+            }
+            for (f = b.GetFixtureList();
+            f; f = f.GetNext()) {
+               var aabb = bp.GetFatAABB(f.m_proxy);
+               vs[0].Set(aabb.lowerBound.x, aabb.lowerBound.y);
+               vs[1].Set(aabb.upperBound.x, aabb.lowerBound.y);
+               vs[2].Set(aabb.upperBound.x, aabb.upperBound.y);
+               vs[3].Set(aabb.lowerBound.x, aabb.upperBound.y);
+               this.Physics.world.m_debugDraw.DrawPolygon(vs, 4, color);
+            }
+         }
+      }
+      if (flags & b2DebugDraw.e_centerOfMassBit) {
+         for (b = this.Physics.world.m_bodyList;
+         b; b = b.m_next) {
+            xf = b2World.s_xf;
+            xf.R = b.m_xf.R;
+            xf.position = b.GetWorldCenter();
+            this.Physics.world.m_debugDraw.DrawTransform(xf);
+         }
+      }
+   },
+
    start: function() {
     	var e = this.eventListeners.onStart;
     	if(e) for (var i = 0; i < e.length; i++) {
     	  	e[i].pre();
     	  };  
 
-   		var This = this;
+      this.set("sort");
+
+   	var This = this;
 	    function updater() {  
 			This.updater = requestAnimationFrame( updater ); 
 			if(!This.pause) This.update(); 
@@ -11776,6 +11924,7 @@ EntityClass = Class.extend({
 			width: param.width,
 			height: param.height
 		}
+      if(this.zIndex==undefined||this.zIndex==null) this.zIndex = param.z;
 		this.offset = param.offset;
 		this.alpha = param.alpha;
 		this.offset = param.offset;
@@ -11891,6 +12040,8 @@ EntityClass = Class.extend({
          position.y = param.y*30;
          position.z = this.position.z; 
          this.position = position;
+
+         if(this.zIndex==undefined||this.zIndex==null) this.zIndex = position.z;
 
          var eHover = This.eventListeners.onHover;
          if(eHover && (G.scenes[this.sceneId].entityHover == this.id)) {
