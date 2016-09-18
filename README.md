@@ -58,8 +58,13 @@ Here is a minimum example for a game with generis2d
 * GameEngineClass.activeScene
 * GameEngineClass.loaded
 * GameEngineClass.WtoH
+
 #### Functions
-* GameEngineClass.new(type, params)
+* GameEngineClass.new(type, params) // params optional
+| type       | params        |
+| -----------|:-------------:|
+| canvas   | {id:<canvas id>, container: <canvas container>, width: <canvas width>, height: <canvas height>} |
+| scene   | {id:<scene id>, canvas: <scene canvas>, width: <scene width>, height: <scene height>} |
 
 ## Built With
 
