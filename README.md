@@ -1,6 +1,7 @@
 # Generis2d
 
-Generis is a free open source game engine that allows novice to proffesional 2D web game development entirely online
+[Generis2d](http://generisengine.appspot.com/) is a free open source game engine that allows novice to proffesional 2D web game development entirely online.
+
 
 ### Prerequisities
 
@@ -16,7 +17,7 @@ First add the library to your html file
 ```
 Disclaimer: It's a free service, so there are [no uptime or support guarantees]().
 
-#### Getting Started
+### Getting Started
 
 Here is a minimum example for a game with generis2d
 
@@ -49,12 +50,17 @@ Here is a minimum example for a game with generis2d
   </body>
 </html>
 ```
+## Basic API
+### GameEngineClass
+#### Properties
+* GameEngineClass.Scenes
+* GameEngineClass.canvas
+* GameEngineClass.activeScene
+* GameEngineClass.loaded
+* GameEngineClass.WtoH
+#### Functions
+* GameEngineClass.new(type, params)
 
-## Built With
-
-* Pure Javascript
-* Box2d
-* 
 ## Built With
 
 * Pure Javascript
