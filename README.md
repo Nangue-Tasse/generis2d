@@ -51,29 +51,138 @@ Here is a minimum example for a game with generis2d
 </html>
 ```
 ## Basic API
-### GameEngineClass
+### GameEngine
 #### Properties
-* GameEngineClass.Scenes
-* GameEngineClass.canvas
-* GameEngineClass.activeScene
-* GameEngineClass.loaded
-* GameEngineClass.WtoH
+* GameEngine.Scenes // dictionary
+* GameEngine.canvas // object
+* GameEngine.activeScene // string
+* GameEngine.loaded // integer
+* GameEngine.WtoH // float
 
 #### Functions
-* GameEngineClass.new(type, params) // params optional
+* **GameEngine.new(type, params)** // params optional
 
 | type       | params        |
 | -----------|:-------------:|
 | **canvas**   | {id:[canvas id], container: [canvas container], width: [canvas width], height: [canvas height]} |
 | **scene**   | {id:[scene id], canvas: [scene canvas], width: [scene width], height: [scene height]} |
 
-* GameEngineClass.new(type, params) // params optional
+* **GameEngine.start(type, params)** // params optional
 
 | type       | params        |
 | -----------|:-------------:|
-| canvas   | {id:[canvas id], container: [canvas container], width: [canvas width], height: [canvas height]} |
-| scene   | {id:[scene id], canvas: [scene canvas], width: [scene width], height: [scene height]} |
+| scene   | {id:[scene id]} |
 
+
+### SceneEngine
+#### Properties
+  * SceneEngine.id // string
+  * SceneEngine.width // float
+  * SceneEngine.height // float
+  * SceneEngine.entities // dictionary
+  * SceneEngine.cameras: // dictionary
+  * SceneEngine.activeCamera // string 
+  * SceneEngine.events // dictionary
+  * SceneEngine.eventListeners // dictionary
+  * SceneEngine.time // integer,
+  * SceneEngine.pause // boolean 
+  * SceneEngine.entityParams // dictionary 
+  * SceneEngine.time // int
+
+#### Functions
+* **SceneEngine.new(type, params)** // params optional
+
+| type       | params        |
+| -----------|:-------------:|
+| **camera**   | {id:[camera id], width: [camera width], height: camera height]} |
+| **entity**   | {id:[entity id], idle: [entity idle body], zIndex: [entity zIndex], bodies: [entity bodies deffinition]} |
+
+* **SceneEngine.add(type, params)** // params optional
+
+| type       | params        |
+| -----------|:-------------:|
+| **enventListener**   | {id:[enventListener id], pre: [ function ], post: [ function ]} |
+
+* **SceneEngine.set(type, params)** // params optional
+
+| type       | params        |
+| -----------|:-------------:|
+| **gravity**   | {x:[ x component], y:[ y component]} |
+| **sort**   | {type:[ascend or decend], sort:[ function ]} |
+
+* **SceneEngine.start()
+* **SceneEngine.close()
+
+
+### CameraEngine
+#### Properties
+  * CameraEngine.id // string
+  * CameraeEngine.width // float
+  * CameraEngine.height // float
+  * CameraEngine.Position // dictionary
+  * CameraEngine.Size // dictionary
+  * CameraEngine.events // dictionary
+  * CameraEngine.eventListeners // dictionary
+  * CameraEngine.time // int
+
+#### Functions
+* **CameraEngine.add(type, params)** // params optional
+
+| type       | params        |
+| -----------|:-------------:|
+| **enventListener**   | {id:[enventListener id], pre: [ function ], post: [ function ]} |
+
+* **CameraEngine.set(type, params)** // params optional
+
+| type       | params        |
+| -----------|:-------------:|
+| **position**   | {x:[ x component], y:[ y component], z:[ z component]} |
+| **size**   | {width:[ camera width], height:[ camera height]} |
+
+* **CameraEngine.get(type)**  
+
+### EntityEngine
+#### Properties
+  * EntityEngine.id // string
+  * EntityEngine.body // box2d object
+  * EntityEngine.bodies // dictionary
+  * EntityEngine.activeBody // string
+  * EntityEngine.idleBody // string
+  * EntityEngine.zIndex // int
+  * EntityEngine.frame // int
+  * EntityEngine.eDraw // int
+  * EntityEngine.eDebugDraw // int
+  * EntityEngine.offset // dictionary
+  * EntityEngine.alpha // 0 <= float <=1
+  * EntityeEngine.width // float
+  * EntityEngine.height // float
+  * EntityEngine.Position // dictionary
+  * EntityEngine.Size // dictionary
+  * EntityEngine.events // dictionary
+  * EntityEngine.eventListeners // dictionary
+  * EntityEngine.time // int
+
+#### Functions
+* **EntityEngine.add(type, params)** // params optional
+
+| type       | params        |
+| -----------|:-------------:|
+| **enventListener**   | {id:[enventListener id], pre: [ function ], post: [ function ]} |
+| **body**   | {body:[body definition]} |
+| **frame**   | {frame:[frame url]} |
+
+* **EntityEngine.set(type, params)** // params optional
+
+| type       | params        |
+| -----------|:-------------:|
+| **position**   | {x:[ x component], y:[ y component], z:[ z component]} |
+| **size**   | {width:[ Entity width], height:[ Entity height]} |
+| **offset**   | {position:{x:x,y:y,z:z}, size:{width:width,height:height}} |
+| **alpha**   | {alpha:[ alpha]} |
+| **frames**   | {frames:[frames url array]} |
+| **body**   | {x:x,y:y,z:z,width:width,height:height,groupIndex:groupIndex,offset:offset,alpha:alpha} |
+
+* **EntityEngine.get(type)** 
 
 ## Built With
 
