@@ -94,7 +94,7 @@ Here is a minimum example for a game with generis2d
 
 | type       | params        |
 | -----------|:-------------:|
-| **camera**   | {id:[camera id], width: [camera width], height: camera height]} |
+| **camera**   | {id:[camera id], x:x, y:y, z:z, width: [camera width], height: camera height]} |
 | **entity**   | {id:[entity id], idle: [entity idle body], zIndex: [entity zIndex], bodies: [entity bodies deffinition]} |
 
 * **SceneEngine.add(type, params)** // params optional
@@ -110,8 +110,8 @@ Here is a minimum example for a game with generis2d
 | **gravity**   | {x:[ x component], y:[ y component]} |
 | **sort**   | {type:[ascend or decend], sort:[ function ]} |
 
-* **SceneEngine.start()
-* **SceneEngine.close()
+* **SceneEngine.start()**
+* **SceneEngine.close()**
 
 
 ### CameraEngine
