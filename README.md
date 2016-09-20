@@ -19,7 +19,7 @@ Disclaimer: It's a free service, so there are [no uptime or support guarantees](
 
 ### Getting Started
 
-Here is a minimum example for a game with generis2d
+Here is a minimum example using generis2d
 
 ```html
 <!DOCTYPE html>
