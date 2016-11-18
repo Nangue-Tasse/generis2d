@@ -27,23 +27,16 @@ Here is a minimum example using generis2d
   <head> 
     <script type="text/javascript" src="https://cdn.rawgit.com/Nangue-Tasse/generis2d/master/generis2d.min.js"></script>   
   </head>
-  <body>   
-    <script> 
+  <body style="background-color:#000">   
+    <script>
             var scene = G.new("scene"); // New Scene
-            var camera = scene.new("camera"); // New Scene Camera
 
             // Bodies definition
-            var box = { idle: { x:200, y:300, z:0, width: 200, height: 200, type:"static",
-                        frames: ["http://www.udellgames.com/wp-content/uploads/2013/07/box2.png"] } 
-                      };
-            var sphere = { idle: { x:200, y:200, z:0, radius: 50, type:"dynamic",
-                        frames: ["https://mobilegamegraphics.com/wp-content/uploads/2015/06/Coin_spin.gif"] } 
-                      };
+            var bodies = { idle: { x:100, y:100, frames: ["http://generisengine.appspot.com/data/images/logo11.png"] } }; 
 
             // New entities
-            scene.new( "entity", { id:"box", idleBody: "idle", bodies: box } );   
-            scene.new( "entity", { id:"sphere", idleBody: "idle", bodies: sphere } ); 
-                                     
+            scene.new( "entity", { idleBody: "idle", bodies: bodies } ); 
+
             scene.start(); // Start Scene
 
     </script> 
