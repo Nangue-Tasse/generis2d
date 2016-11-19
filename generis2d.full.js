@@ -10986,8 +10986,8 @@ GameEngineClass = Class.extend({
     scenes: {},
     canvas:{},
     activeScene: "",
-    loaded: 0, 
-    WtoH: 0, 
+    WtoH: 4/3, 
+    started: false,
 
     new: function(type, params) {
     	switch(type.toLowerCase()){
@@ -11054,7 +11054,8 @@ GameEngineClass = Class.extend({
 					canvas: params.canvas,
 					width: params.width||params.canvas.width,
 					height: params.height||params.canvas.height,
-               camera: params.camera, 
+               camera: params.camera,
+               WtoH: params.WtoH
 				};
 				var scene = new SceneEngineClass(params);
 				this.scenes[params.id] = scene;
@@ -11144,6 +11145,7 @@ GameEngineClass = Class.extend({
     		case "scene":
       			if(params) this.scenes[params.id||this.activeScene].start();
       			else this.scenes[this.activeScene].start();
+               this.started = true;
    				break;
       	}
     }, 
@@ -11170,6 +11172,7 @@ SceneEngineClass = Class.extend({
 	eventListeners: {},
 	factory: {}, 
 	time: 0,
+   loaded: 0, 
 	pause: false,  
 	entityParams: null, 
 
@@ -11179,7 +11182,7 @@ SceneEngineClass = Class.extend({
       this.id = params.id;
 
       this.width = params.width;
-      this.height = params.height; 
+      this.height = params.height;  
 
       if(params.camera) {
          var camera = new CameraClass(this.id, params.camera);
@@ -11187,7 +11190,8 @@ SceneEngineClass = Class.extend({
          this.activeCamera = camera.id;
       }
 
-      this.Renderer = new RenderEngineClass(this.id, params.canvas);  
+      this.Renderer = new RenderEngineClass(this.id, params.canvas); 
+      if(params.WtoH || params.WtoH==0) this.Renderer.WtoH = params.WtoH;
       this.InputManager = new InputEngineClass(this.id, params.canvas); 
  
       gMap = new TILEDMapClass();
@@ -11302,7 +11306,8 @@ SceneEngineClass = Class.extend({
                this.cameras[camera.id] = camera;
                this.activeCamera = camera.id;
                return camera;
-   			case "entity":
+   			case "entity": 
+            if(Object.keys(this.cameras).length == 0) this.new("camera");
 				if(!params) params = JSON.parse(JSON.stringify(this.entityParams));
 				if(!params.id){
 					var today = new Date(); 
@@ -11365,6 +11370,128 @@ SceneEngineClass = Class.extend({
 				params.on=false;
 				this.events[params.id] = new EventClass(this.id, params);
 		    	return this.events[params.id];
+          
+          case "map":  
+            if(!params.allMaps) { console.log("Error: Please Provide allMaps"); return [];}
+            
+            var pointers = {layerIdx:0, tileIDX:0};
+            var tileCount = 0; 
+
+            loop1 = function(Map, settings) {
+               if(pointers.layerIdx >= Map.currMapData.layers.length) return;
+               if(Map.currMapData.layers[pointers.layerIdx].type != "tilelayer") {
+                  pointers.layerIdx += 1;
+                  loop1(Map, settings);
+                  return;
+               }
+               var dat = Map.currMapData.layers[pointers.layerIdx].data;
+               loop2(Map, dat, settings);
+            }
+
+            loop2 = function(Map, dat, settings) {
+               xhrGet("js/loaderAsync.json", function (data) {
+                  if(pointers.layerIdx >= Map.currMapData.layers.length) return;
+                  if(pointers.tileIDX >= dat.length) {
+                     pointers.tileIDX = 0;
+                     pointers.layerIdx += 1;
+                     loop1(Map, settings);
+                     return;
+                  }
+
+                  var tID = dat[pointers.tileIDX];
+                  if(tID === 0) {
+                     pointers.tileIDX += 1;
+                     loop2(Map, dat, settings);
+                     return;
+                  } 
+
+                  var tPKT = Map.getTilePacket(tID);
+                  var dx = Math.floor(pointers.tileIDX % Map.numXTiles) * Map.tileSize.x;
+                  var dy = Math.floor(pointers.tileIDX / Map.numXTiles) * Map.tileSize.y; 
+                  var tileNum = [(tPKT.px/Map.tileSize.x), (tPKT.py/Map.tileSize.y)];
+                  tileNum = tileNum.toString();
+                  var name = 'tile_'+tileCount+"_"+pointers.layerIdx+"_"+(tPKT.px/Map.tileSize.x)+"_"+(tPKT.py/Map.tileSize.y);
+
+                  if ( settings && settings[pointers.layerIdx]) {
+                     if (settings[pointers.layerIdx].physBody) {   
+                        var sets = { useImageSize: false,  useSpriteSheet: false,
+                                     pos: { x: dx, y: dy} , size: { height: Map.tileSize.y, width: Map.tileSize.x} , 
+                                   }; 
+                     } else{
+                        var sets = { useImageSize: false,  useSpriteSheet: false, enablePhysBody: false, 
+                                     pos: { x: dx, y: dy} , size: { height: Map.tileSize.y, width: Map.tileSize.x} , 
+                                   };
+                     }
+                  } else {
+                     var sets = { useImageSize: false,  useSpriteSheet: false, enablePhysBody: false, 
+                                  pos: { x: dx, y: dy} , size: { height: Map.tileSize.y, width: Map.tileSize.x} ,
+                                };
+                  }
+                  if( settings && settings[pointers.layerIdx] && settings[pointers.layerIdx][tileNum] && settings[pointers.layerIdx][tileNum].settings){ 
+                     for (var item in settings[pointers.layerIdx][tileNum].settings) {
+                        sets[item] = JSON.parse(JSON.stringify(settings[pointers.layerIdx][tileNum].settings[item])) ; 
+                     }
+                  }
+                  
+                  var base64ImageData;
+                  if(images[tPKT.px/Map.tileSize.x] && images[tPKT.px/Map.tileSize.x][tPKT.py/Map.tileSize.y]) { 
+                     base64ImageData = images[tPKT.px/Map.tileSize.x][tPKT.py/Map.tileSize.y];
+                     var Sprites = new SpriteSheetClass(); 
+                     Sprites.load(base64ImageData, function() {
+                        This.loaded -= 1;
+                        var animBs = { idle: sets };
+                        var animationFs = [ [ "idle", [ base64ImageData ] ], ];
+                        var charPs = { id: name, animBodies: animBs, animFrames: animationFs, initBody: "idle", zIndex: pointers.layerIdx }
+                        var ent = gSceneEngine.spawnEntity(charPs); 
+                        This.loaded += 1;
+                        tileCount += 1;
+                        pointers.tileIDX+=1;
+                        loop2(Map, dat, settings);
+                     }); 
+                  } else{
+                     var ww = tPKT.img.width, hh = tPKT.img.height;
+                     var canvas = $('<canvas/>').attr({
+                                  width: Map.tileSize.x,
+                                  height: Map.tileSize.y 
+                               }).hide().appendTo('body');
+                     var ctx = canvas.get(0).getContext('2d'); 
+                     ctx.drawImage(tPKT.img, tPKT.px, tPKT.py, Map.tileSize.x, Map.tileSize.y, 0, 0, Map.tileSize.x, Map.tileSize.y);
+                     base64ImageData = canvas.get(0).toDataURL(); 
+                     images[tPKT.px/Map.tileSize.x]={};
+                     images[tPKT.px/Map.tileSize.x][tPKT.py/Map.tileSize.y] = base64ImageData;
+                     var Sprites = new SpriteSheetClass(); 
+                     Sprites.load(base64ImageData, function() {
+                        This.loaded -= 1;
+                        var animBs = { idle: sets };
+                        var animationFs = [ [ "idle", [ base64ImageData ] ], ];
+                        var charPs = { id: name, animBodies: animBs, animFrames: animationFs, initBody: "idle", zIndex: pointers.layerIdx }
+                        var ent = gSceneEngine.spawnEntity(charPs); 
+                        This.loaded += 1;
+                        tileCount += 1;
+                        pointers.tileIDX+=1;
+                        loop2(Map, dat, settings);
+                     });
+                  }
+               });
+            }
+
+            for ( var i = 0; i < params.mapFiles.length ; i++ ) {
+               var gameMap = new TILEDMapClass();
+               var settings = params.mapFiles[i][1]; 
+               var images = {};
+               gameMap.load(params.mapFiles[i][0], function(Map){
+                  if(pointers.layerIdx >= Map.currMapData.layers.length) return;
+                  params.allMaps.push( Map );
+
+                  xhrGet("js/loaderAsync.json", function (data) {
+                     if(pointers.layerIdx >= Map.currMapData.layers.length) return;
+                     xhrGet("js/loaderAsync.json", function (data) {
+                        if(pointers.layerIdx >= Map.currMapData.layers.length) return;
+                        loop1(Map, settings);
+                     });
+                  }); 
+               });          
+            }
 
    		}
    },
@@ -11433,6 +11560,23 @@ SceneEngineClass = Class.extend({
    				break;
    		}
    }, 
+
+   load: function(type, params) {
+         switch(type.toLowerCase()) {
+            case "sprites":
+               var allSprites = [];
+        
+               for ( var i = 0; i < params.spritesFiles.length ; i++ ) {  
+                   var Sprites = new SpriteSheetClass(); 
+                   Sprites.load( params.spritesFiles[i][0], this);
+                  if( params.spritesFiles[i].length==2) Sprites.loadSprite( params.spritesFiles[i][1], this); 
+
+                  allSprites.push( Sprites );
+                   
+               } 
+               return allSprites; 
+         }
+   },
      
     update: function (animStart) {
     	var e = this.eventListeners.onUpdate;
@@ -11621,30 +11765,66 @@ SceneEngineClass = Class.extend({
    },
 
    start: function() {
-    	var e = this.eventListeners.onStart;
-    	if(e) for (var i = 0; i < e.length; i++) {
-    	  	e[i].pre();
-    	  };  
 
-      this.set("sort");
+      var This = this;
+      var ctx = this.Renderer.context, /// get context
+          alpha = 0,          /// current alpha
+          delta = 0.1,        /// delta value = speed
+          count = 0,
+          img = new Image();  /// create image to draw
 
-   	var This = this;
-	    function updater() {  
-			This.updater = requestAnimationFrame( updater ); 
-			if(!This.pause) This.update(); 
-	    }; 
-		updater();
+      var camera = This.cameras[This.activeCamera];
+      var pos = (delta > 0) ? 1 : -1;
+      delta = 5 / 100 * pos;  
+      img.src = 'http://generisengine.appspot.com/data/images/generisIntro.jpg'; 
+      img.onload = function() { 
+          loop(); 
+          function loop() {
+               var end = false;  
+              if (alpha >= 1 ) {
+                  count++;
+                  if ( count>=50) { 
+                     delta = -delta;
+                     alpha += delta;
+                  }
+               } else if (alpha < 0 ) {
+                  end = true; 
+               } else {
+                  alpha += delta;
+               } 
+              ctx.clearRect(0, 0, This.width, This.height); 
+              ctx.globalAlpha = alpha; 
+              ctx.drawImage(img,  0, 0, This.width, This.height);//camera.position.x, camera.position.y, camera.size.width, camera.size.height);  
+              if(!end){ 
+                  requestAnimationFrame(loop);
+              } else {
+                  var e = This.eventListeners.onStart;
+                  if(e) for (var i = 0; i < e.length; i++) {
+                     e[i].pre();
+                    };  
 
-		if(G.gameResize) G.gameResize();
-		this.Renderer.resizeGame(); 
-		this.closed = false;
+                  This.set("sort");
 
-		G.activeScene = this.id; 
+                   function updater() { 
+                     if(This.Renderer.WtoH || This.Renderer.WtoH==0) G.WtoH = This.WtoH;
+                     This.updater = requestAnimationFrame( updater ); 
+                     if(!This.pause) This.update(); 
+                   }; 
+                  updater();
 
-    	var e = this.eventListeners.onUpdate;
-    	if(e) for (var i = 0; i < e.length; i++) {
-    	  	e[i].post();
-    	  };  
+                  if(G.gameResize) G.gameResize();
+                  This.Renderer.resizeGame(); 
+                  This.closed = false;
+
+                  G.activeScene = This.id; 
+
+                  var e = This.eventListeners.onUpdate;
+                  if(e) for (var i = 0; i < e.length; i++) {
+                     e[i].post();
+                  }; 
+              }
+          }
+      }   
     },
     
     close: function() { 
@@ -13682,7 +13862,7 @@ SpriteSheetClass = Class.extend({
     // Load the atlas at the path 'imgName' into
     // memory. This is similar to how we've
     // loaded images in previous units.
-   load: function (imgName, callback) {
+   load: function (imgName, scene, callback) {
       // Store the URL of the spritesheet we want.
         this.url = imgName;
         var This = this;
@@ -13691,7 +13871,7 @@ SpriteSheetClass = Class.extend({
       img.onload = function() { 
          gSpriteSheets[imgName] = This;
          This.imagesLoaded = true;
-         G.loaded += 1;
+         scene.loaded += 1;
          if(callback) callback(img);
       };
       img.src = imgName;
@@ -13714,7 +13894,7 @@ SpriteSheetClass = Class.extend({
       this.sprites[name] = spt ;
    },
    
-   loadSprite: function (map) {
+   loadSprite: function (map, scene) {
       
       var gMap = this;
 
@@ -13724,7 +13904,7 @@ SpriteSheetClass = Class.extend({
             // Once the XMLHttpRequest loads, call the
             // parseMapJSON method.
             gMap.parseAtlasDefinition(data.responseText);
-         G.loaded += 1;
+         scene.loaded += 1;
         });
     },
 
@@ -13828,27 +14008,17 @@ function __drawSpriteInternal(ctx, entity, spt, sheet, posX, posY, width, height
         var yy = 0 ;   
     }
    
-
-    if ( entity.updateType == "cutting" ) {
+   var visible = entity.bodies[entity.activeBody].visible;
+   if(visible){
+       ww *= visible; 
        
-       var dw = ( ww * entity.srcSzOffset.width )/100;
-       var dh = ( hh * entity.srcSzOffset.height )/100;
+       width *= visible; 
        
-       var dwidth = ( width * entity.srcSzOffset.width )/100;
-       var dheight = ( height * entity.srcSzOffset.height )/100;
+       //xx += (ww/visible)-ww; 
        
-       ww -= dw;
-       hh -= dh;
-       
-       width -=   dwidth ;
-       height -=   dheight ;
-       
-       xx += dw;
-       yy += dh;
-       
-       posX += dwidth ;
-       posY += dheight ;
-    }
+       posX -= ((width/visible)-width)/2;
+       //posY += dheight ;
+   } 
   
    //console.log(sheet.img);
    try {    
@@ -13958,7 +14128,7 @@ var TILEDMapClass = Class.extend({
     // memory. This is similar to the requests
     // we've done in the past using
     // XMLHttpRequests.
-    load: function (map, callback) {
+    load: function (map, scene, callback) {
       
       var gMap = this;
 
@@ -13968,7 +14138,7 @@ var TILEDMapClass = Class.extend({
             // Once the XMLHttpRequest loads, call the
             // parseMapJSON method.
             gMap.parseMapJSON(data.responseText, callback);
-         G.loaded += 1;
+         scene.loaded += 1;
         });
     },
 
@@ -13977,7 +14147,7 @@ var TILEDMapClass = Class.extend({
     // stores that data in a number of members
     // of our 'TILEDMapClass' that are defined
     // above.
-    parseMapJSON: function (mapJSON, callback) {
+    parseMapJSON: function (mapJSON, scene, callback) {
         // Call JSON.parse on 'mapJSON' and store
         // the resulting map data
         
@@ -14018,7 +14188,7 @@ var TILEDMapClass = Class.extend({
                     // ...Once all the tilesets are loaded, 
                     // set the 'fullyLoaded' flag to true...
                     gMap.fullyLoaded = true;
-               G.loaded += 1;
+               scene.loaded += 1;
                     callback(gMap);
                 }
             };
