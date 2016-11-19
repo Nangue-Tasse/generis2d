@@ -11794,7 +11794,7 @@ SceneEngineClass = Class.extend({
                } 
               ctx.clearRect(0, 0, This.width, This.height); 
               ctx.globalAlpha = alpha; 
-              ctx.drawImage(img,  0, 0, This.width, This.height);//camera.position.x, camera.position.y, camera.size.width, camera.size.height);  
+              ctx.drawImage(img,  0, 0, This.Renderer.canvas.width, This.Renderer.canvas.height);//camera.position.x, camera.position.y, camera.size.width, camera.size.height);  
               if(!end){ 
                   requestAnimationFrame(loop);
               } else {
