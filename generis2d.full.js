@@ -10988,6 +10988,7 @@ GameEngineClass = Class.extend({
     activeScene: "",
     WtoH: 4/3, 
     started: false,
+    generisIntro: true,
 
     new: function(type, params) {
     	switch(type.toLowerCase()){
@@ -11765,66 +11766,92 @@ SceneEngineClass = Class.extend({
    },
 
    start: function() {
-
       var This = this;
-      var ctx = this.Renderer.context, /// get context
-          alpha = 0,          /// current alpha
-          delta = 0.1,        /// delta value = speed
-          count = 0,
-          img = new Image();  /// create image to draw
+      if(G.generisIntro) {  
+         var ctx = this.Renderer.context, /// get context
+             alpha = 0,          /// current alpha
+             delta = 0.1,        /// delta value = speed
+             count = 0,
+             img = new Image();  /// create image to draw
 
-      var camera = This.cameras[This.activeCamera];
-      var pos = (delta > 0) ? 1 : -1;
-      delta = 5 / 100 * pos;  
-      img.src = 'http://generisengine.appspot.com/data/images/generisIntro.jpg'; 
-      img.onload = function() { 
-          loop(); 
-          function loop() {
-               var end = false;  
-              if (alpha >= 1 ) {
-                  count++;
-                  if ( count>=50) { 
-                     delta = -delta;
+         var camera = This.cameras[This.activeCamera];
+         var pos = (delta > 0) ? 1 : -1;
+         delta = 5 / 100 * pos;  
+         img.src = 'http://generisengine.appspot.com/data/images/generisIntro.jpg'; 
+         img.onload = function() { 
+             loop(); 
+             function loop() {
+                  var end = false;  
+                 if (alpha >= 1 ) {
+                     count++;
+                     if ( count>=50) { 
+                        delta = -delta;
+                        alpha += delta;
+                     }
+                  } else if (alpha < 0 ) {
+                     end = true; 
+                  } else {
                      alpha += delta;
-                  }
-               } else if (alpha < 0 ) {
-                  end = true; 
-               } else {
-                  alpha += delta;
-               } 
-              ctx.clearRect(0, 0, This.width, This.height); 
-              ctx.globalAlpha = alpha; 
-              ctx.drawImage(img,  0, 0, This.Renderer.canvas.width, This.Renderer.canvas.height);//camera.position.x, camera.position.y, camera.size.width, camera.size.height);  
-              if(!end){ 
-                  requestAnimationFrame(loop);
-              } else {
-                  var e = This.eventListeners.onStart;
-                  if(e) for (var i = 0; i < e.length; i++) {
-                     e[i].pre();
-                    };  
+                  } 
+                 ctx.clearRect(0, 0, This.width, This.height); 
+                 ctx.globalAlpha = alpha; 
+                 ctx.drawImage(img,  0, 0, This.Renderer.canvas.width, This.Renderer.canvas.height);//camera.position.x, camera.position.y, camera.size.width, camera.size.height);  
+                 if(!end){ 
+                     requestAnimationFrame(loop);
+                 } else {
+                     var e = This.eventListeners.onStart;
+                     if(e) for (var i = 0; i < e.length; i++) {
+                        e[i].pre();
+                       };  
 
-                  This.set("sort");
+                     This.set("sort");
 
-                   function updater() { 
-                     if(This.Renderer.WtoH || This.Renderer.WtoH==0) G.WtoH = This.WtoH;
-                     This.updater = requestAnimationFrame( updater ); 
-                     if(!This.pause) This.update(); 
-                   }; 
-                  updater();
+                      function updater() { 
+                        if(This.Renderer.WtoH || This.Renderer.WtoH==0) G.WtoH = This.WtoH;
+                        This.updater = requestAnimationFrame( updater ); 
+                        if(!This.pause) This.update(); 
+                      }; 
+                     updater();
 
-                  if(G.gameResize) G.gameResize();
-                  This.Renderer.resizeGame(); 
-                  This.closed = false;
+                     if(G.gameResize) G.gameResize();
+                     This.Renderer.resizeGame(); 
+                     This.closed = false;
 
-                  G.activeScene = This.id; 
+                     G.activeScene = This.id; 
 
-                  var e = This.eventListeners.onUpdate;
-                  if(e) for (var i = 0; i < e.length; i++) {
-                     e[i].post();
-                  }; 
-              }
-          }
-      }   
+                     var e = This.eventListeners.onUpdate;
+                     if(e) for (var i = 0; i < e.length; i++) {
+                        e[i].post();
+                     }; 
+                 }
+             }
+         } 
+      } else {
+         var e = This.eventListeners.onStart;
+         if(e) for (var i = 0; i < e.length; i++) {
+            e[i].pre();
+           };  
+
+         This.set("sort");
+
+          function updater() { 
+            if(This.Renderer.WtoH || This.Renderer.WtoH==0) G.WtoH = This.WtoH;
+            This.updater = requestAnimationFrame( updater ); 
+            if(!This.pause) This.update(); 
+          }; 
+         updater();
+
+         if(G.gameResize) G.gameResize();
+         This.Renderer.resizeGame(); 
+         This.closed = false;
+
+         G.activeScene = This.id; 
+
+         var e = This.eventListeners.onUpdate;
+         if(e) for (var i = 0; i < e.length; i++) {
+            e[i].post();
+         }; 
+      }  
     },
     
     close: function() { 
