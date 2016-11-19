@@ -13959,7 +13959,7 @@ SpriteSheetClass = Class.extend({
 
 
 function drawSprite(ctx, entity, spritename, posX, posY, width, height) {
-   if(entity.useSpriteSheet) {
+   if(entity.bodies[entity.activeBody].useSpriteSheet) {
       for(var sheetName in gSpriteSheets) {
          
         
@@ -13988,7 +13988,7 @@ function __drawSpriteInternal(ctx, entity, spt, sheet, posX, posY, width, height
    width += entity.offset.size.width;
    height += entity.offset.size.height;
 
-   if(entity.useSpriteSheet) { 
+   if(entity.bodies[entity.activeBody].useSpriteSheet) { 
    
          if (spt === null || sheet === null) return; 
          
