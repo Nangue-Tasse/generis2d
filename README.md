@@ -13,7 +13,7 @@ Using generis2d is very simple and intuitively easy.
 
 First add the library to your html file
 ```html
-<script src="https://cdn.rawgit.com/Nangue-Tasse/generis2d/420ade1/generis2d.min.js"></script>
+<script src="https://cdn.rawgit.com/Nangue-Tasse/generis2d/8ecb78b/generis2d.min.js"></script>
 ```
 Disclaimer: It's a free service, so there are [no uptime or support guarantees]().
 
@@ -25,7 +25,7 @@ Here is a minimum example using generis2d
 <!DOCTYPE html>
 <html>
   <head> 
-    <script type="text/javascript" src="https://cdn.rawgit.com/Nangue-Tasse/generis2d/420ade1/generis2d.min.js"></script>   
+    <script type="text/javascript" src="https://cdn.rawgit.com/Nangue-Tasse/generis2d/8ecb78b/generis2d.min.js"></script>   
   </head>
   <body style="background-color:#000">   
     <script>
