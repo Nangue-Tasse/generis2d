@@ -10995,83 +10995,85 @@ GameEngineClass = Class.extend({
     scenes: {},
     canvas:{},
     activeScene: "",
-    WtoH: 4/3, 
     started: false,
     generisIntro: true,
 
     new: function(type, params) {
     	switch(type.toLowerCase()){
     		case "canvas":
-				if(!params) params = {};
-    			this.WtoH = params.WtoH || this.WtoH;
-    			var container;
-    			if(params.container) container = document.getElementById(params.container);
-    			else container = document.body;
-                var containerBox = container.getBoundingClientRect();
-    			var gameArea = document.createElement("div");
-    			gameArea.style.position = "absolute";
-    			gameArea.style.left = "50%";
-    			gameArea.style.top = "50%";
+				if(!params) params = {}; 
     			var gameCanvas = document.createElement("canvas");
             if(params.id) gameCanvas.id = params.id;
-            else gameCanvas.id = "canvas";
+            else {
+               var today = new Date(); 
+               var t = today.getHours(); // => 9
+               t += today.getMinutes(); // =>  30
+               t +=  today.getSeconds(); // => 51
+               t +=  Math.random(); 
+               var dd = today.getDate();
+               var mm = today.getMonth()+1; //January is 0!
+               var yyyy = today.getFullYear(); 
+               if(dd<10) dd='0'+dd;
+               if(mm<10) mm='0'+mm; 
+               today = mm +dd +yyyy;   
+               gameCanvas.id = "canvas_" + today + t;  
+            }
     			gameCanvas.width = params.width || containerBox.width;
-    			gameCanvas.height = params.height || containerBox.height;
-    			gameArea.appendChild(gameCanvas);
-    			container.appendChild(gameArea);
-    			this.gameArea = gameArea; 
-    			if(this.gameResize) this.gameResize(gameArea);
+    			gameCanvas.height = params.height || containerBox.height; 
+            this.canvas[gameCanvas.id] = gameCanvas;
     			return gameCanvas;
     		case "scene":
 				if(name in this.scenes) return null;
-				if(!params) params = {};
-				if(!params.canvas) {
-	    			this.WtoH = params.WtoH || this.WtoH; 
-	                var containerBox = document.body.getBoundingClientRect();
-	    			var gameArea = document.createElement("div");
-	    			gameArea.style.position = "absolute";
-	    			gameArea.style.left = "50%";
-	    			gameArea.style.top = "50%";
-	    			params.canvas = document.createElement("canvas");
-               params.canvas.id = "canvas";
-    				params.canvas.width = params.width || containerBox.width;
-    				params.canvas.height = params.height || containerBox.height;
-	    			gameArea.appendChild(params.canvas);
-	    			document.body.appendChild(gameArea);
-	    			this.gameArea = gameArea;
-               this.canvas["body"] = gameCanvas;
-	    			if(this.gameResize) this.gameResize(gameArea); 
-				} else {
-               params.canvas = document.getElementById(params.canvas);             
-            }
-				if(!params.id){
-					var today = new Date(); 
-			        var t = today.getHours(); // => 9
-			        t += today.getMinutes(); // =>  30
-			        t +=  today.getSeconds(); // => 51
-			        t +=  Math.random(); 
-			        var dd = today.getDate();
-			        var mm = today.getMonth()+1; //January is 0!
-			        var yyyy = today.getFullYear(); 
-			        if(dd<10) dd='0'+dd;
-			        if(mm<10) mm='0'+mm; 
-			        today = mm +dd +yyyy;   
-			        params.id = "scene_" + today + t;
-				} 
+				if(!params) params = {}; 
+            
+            var today = new Date(); 
+            var t = today.getHours(); // => 9
+            t += today.getMinutes(); // =>  30
+            t +=  today.getSeconds(); // => 51
+            t +=  Math.random(); 
+            var dd = today.getDate();
+            var mm = today.getMonth()+1; //January is 0!
+            var yyyy = today.getFullYear(); 
+            if(dd<10) dd='0'+dd;
+            if(mm<10) mm='0'+mm; 
+            today = mm +dd +yyyy;   
+            id = today + t; 
 
+            var containerBox = document.body.getBoundingClientRect();
+            var gameArea = document.createElement("div");
+            gameArea.style.position = "absolute";
+            gameArea.style.left = "50%";
+            gameArea.style.top = "50%";
+				if(!params.canvas) {  
+	    			params.canvas = document.createElement("canvas");
+               params.canvas.id = "canvas_" + id;
+    				params.canvas.width = params.width || containerBox.width;
+    				params.canvas.height = params.height || containerBox.height; 
+               gameArea.appendChild(params.canvas);
+               document.body.appendChild(gameArea); 
+               this.canvas[params.canvas.id] = params.canvas;  
+				} else { 
+               params.canvas = G.canvas[params.canvas];  
+               gameArea.appendChild(params.canvas);
+               document.body.appendChild(gameArea); 
+            }  
+
+            if(!params.id) params.id = "scene_" + id;
 				params = {
 					id: params.id,
-					canvas: params.canvas,
 					width: params.width||params.canvas.width,
 					height: params.height||params.canvas.height,
                camera: params.camera,
-               WtoH: params.WtoH
+               WtoH: params.WtoH,
+               gravity: params.gravity,
+               gameArea: gameArea
 				};
 				var scene = new SceneEngineClass(params);
 				this.scenes[params.id] = scene;
 				//this.activeScene = params.id;  
 				scene.factory['Entity'] = EntityClass; 
-				scene.setup();
+				scene.setup();  
+            if(scene.Renderer.sceneResize) scene.Renderer.sceneResize();
 
             if(params.gravity) scene.set("gravity", params.gravity);
 
@@ -11113,37 +11115,6 @@ GameEngineClass = Class.extend({
    				break;
    		}
    },  
-
-	gameResize: function(gameArea) { 
-		gameArea = gameArea||this.gameArea; 
-        var containerBox = gameArea.parentElement.getBoundingClientRect();
-	    var newWidth = containerBox.width; 
-	    var newHeight = containerBox.height; 
-	    if(newWidth==0) newWidth = window.innerWidth; 
-	    if(newHeight==0) newHeight = window.innerHeight;
-	 
-	    var newWidthToHeight = newWidth / newHeight; 
-	    
-	    if(!this.WtoH) {
-	        gameArea.style.height = newHeight + 'px'; 
-	        gameArea.style.width = newWidth + 'px'; 	    	
-	    } else if (newWidthToHeight > this.WtoH) { 
-	        newWidth = newHeight * this.WtoH; 
-	        gameArea.style.height = newHeight + 'px'; 
-	        gameArea.style.width = newWidth + 'px'; 
-	    } else { 
-	        newHeight = newWidth / this.WtoH; 
-	        gameArea.style.width = newWidth + 'px'; 
-	        gameArea.style.height = newHeight + 'px'; 
-	    } 
-	      
-	    gameArea.style.marginTop = (-newHeight / 2) + 'px'; 
-	    gameArea.style.marginLeft = (-newWidth / 2) + 'px'; 
-
-		var canvas = gameArea.getElementsByTagName('canvas')[0];
-	    canvas.width = newWidth; 
-	    canvas.height = newHeight;
-	},
 
     close: function(type, params) {
    		switch(type.toLowerCase()) {
@@ -11211,7 +11182,7 @@ SceneEngineClass = Class.extend({
          this.activeCamera = camera.id;
       }
 
-      this.Renderer = new RenderEngineClass(this.id, params.canvas); 
+      this.Renderer = new RenderEngineClass(this.id, params.gameArea);  
       if(params.WtoH || params.WtoH==0) this.Renderer.WtoH = params.WtoH;
       this.InputManager = new InputEngineClass(this.id, params.canvas);  
 
@@ -11842,14 +11813,13 @@ SceneEngineClass = Class.extend({
 
                      This.set("sort");
 
-                      function updater() { 
-                        if(This.Renderer.WtoH || This.Renderer.WtoH==0) G.WtoH = This.WtoH;
+                      function updater() {
                         This.updater = requestAnimationFrame( updater ); 
                         if(!This.pause) This.update(); 
                       }; 
                      updater();
 
-                     if(G.gameResize) G.gameResize();
+                     if(This.Renderer.sceneResize) This.Renderer.sceneResize();
                      This.Renderer.resizeGame(); 
                      This.closed = false;
 
@@ -11872,13 +11842,12 @@ SceneEngineClass = Class.extend({
          This.set("sort");
 
           function updater() { 
-            if(This.Renderer.WtoH || This.Renderer.WtoH==0) G.WtoH = This.WtoH;
             This.updater = requestAnimationFrame( updater ); 
             if(!This.pause) This.update(); 
           }; 
          updater();
 
-         if(G.gameResize) G.gameResize();
+         if(This.Renderer.sceneResize) This.Renderer.sceneResize();
          This.Renderer.resizeGame(); 
          This.closed = false;
 
@@ -12944,29 +12913,62 @@ RenderEngineClass = Class.extend({
     width: 5000
   }, 
 
-  init: function ( sceneId, canvas ) {
+  init: function ( sceneId, gameArea ) {
 
-      this.sceneId = sceneId;
-    this.initWindow.x = canvas.x;
-    this.initWindow.y = canvas.y;
-    this.initWindow.width = window.innerWidth;
-    this.initWindow.height = window.innerHeight;
-    this.initCanvas.width = canvas.width;
-    this.initCanvas.height = canvas.height; 
-    this.canvas = canvas; 
-    this.context = this.canvas.getContext('2d');  
-    var This = this; 
+   this.sceneId = sceneId;
+   this.gameArea = gameArea;
+   var canvas = gameArea.getElementsByTagName('canvas')[0];
+   this.initWindow.x = canvas.x;
+   this.initWindow.y = canvas.y;
+   this.initWindow.width = window.innerWidth;
+   this.initWindow.height = window.innerHeight;
+   this.initCanvas.width = canvas.width;
+   this.initCanvas.height = canvas.height; 
+   this.canvas = canvas; 
+   this.context = this.canvas.getContext('2d');  
+   var This = this; 
 	This.resizeGame(); 
 	window.addEventListener('resize', This.resizeGame, false); 
 	window.addEventListener('orientationchange', This.resizeGame, false); 
    
   }, 
 
-  resizeGame: function() { 
-    if(G.gameResize)  G.gameResize();  
-    try {   
-	    var scene = G.scenes[G.activeScene];
-	    var This = scene.Renderer; 
+   sceneResize: function(gameArea) { 
+      var gameArea = this.gameArea; 
+      var containerBox = gameArea.parentElement.getBoundingClientRect();
+      var newWidth = containerBox.width; 
+      var newHeight = containerBox.height; 
+      if(newWidth==0) newWidth = window.innerWidth; 
+      if(newHeight==0) newHeight = window.innerHeight;
+    
+       var newWidthToHeight = newWidth / newHeight; 
+       
+       if(!this.WtoH) {
+           gameArea.style.height = newHeight + 'px'; 
+           gameArea.style.width = newWidth + 'px';          
+       } else if (newWidthToHeight > this.WtoH) { 
+           newWidth = newHeight * this.WtoH; 
+           gameArea.style.height = newHeight + 'px'; 
+           gameArea.style.width = newWidth + 'px'; 
+       } else { 
+           newHeight = newWidth / this.WtoH; 
+           gameArea.style.width = newWidth + 'px'; 
+           gameArea.style.height = newHeight + 'px'; 
+       } 
+         
+       gameArea.style.marginTop = (-newHeight / 2) + 'px'; 
+       gameArea.style.marginLeft = (-newWidth / 2) + 'px'; 
+
+      var canvas = gameArea.getElementsByTagName('canvas')[0];
+       canvas.width = newWidth; 
+       canvas.height = newHeight;
+   },
+
+  resizeGame: function() {  
+    try {    
+       var scene = G.scenes[G.activeScene];
+       var This = scene.Renderer; 
+       if(This.sceneResize)  This.sceneResize();  
 	    var ctx = This.context;  
        if(!scene.activeCamera) return;
 
@@ -13705,7 +13707,7 @@ InputEngineClass = Class.extend({
    add: function(type, params) {
                 switch(type.toLowerCase()) {
                         case "eventlistener":
-                        G.gameArea.addEventListener(params.id, params.event, params.useCapture&&true);
+                        G.scenes[this.sceneId].Renderer.gameArea.addEventListener(params.id, params.event, params.useCapture&&true);
                                 break;
                 }
    },
