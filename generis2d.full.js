@@ -6034,20 +6034,29 @@ Box2D.postDefs = [];
       	  		var scene = G.scenes[b.GetUserData().sceneId];
       	  		var entity = scene.entities[b.GetUserData().id]; 
                if(!scene.activeCamera) return;
-   				if(entity.position.x + entity.size.width < scene.cameras[scene.activeCamera].position.x) continue; 
-   				if(entity.position.y + entity.size.height < scene.cameras[scene.activeCamera].position.y) continue;
-   				if(entity.position.x - entity.size.width/2 > scene.cameras[scene.activeCamera].position.x + scene.cameras[scene.activeCamera].size.width) continue;
-   				if(entity.position.y - entity.size.height/2 > scene.cameras[scene.activeCamera].position.y + scene.cameras[scene.activeCamera].size.height) continue;
+
+               var  width = entity.size.width;
+               var  height = entity.size.height;
+               if(entity.size.radius){
+                  width = entity.size.radius*2;
+                  height = entity.size.radius*2;
+               } else if(entity.size.polys) {
+
+               }
+   				if(entity.position.x + width < scene.cameras[scene.activeCamera].position.x) continue; 
+   				if(entity.position.y + height < scene.cameras[scene.activeCamera].position.y) continue;
+   				if(entity.position.x - width/2 > scene.cameras[scene.activeCamera].position.x + scene.cameras[scene.activeCamera].size.width) continue;
+   				if(entity.position.y - height/2 > scene.cameras[scene.activeCamera].position.y + scene.cameras[scene.activeCamera].size.height) continue;
    				var ctx = this.m_debugDraw.m_ctx;
    		   	  	var e = entity.eventListeners.draw;
    		    	if(e) for (var i = 0; i < e.length; i++) {
-   		    	  	e[i].pre(ctx,null,null,null,null,null,entity.position.x,entity.position.y,entity.size.width,entity.size.height);
+   		    	  	e[i].pre(ctx,null,null,null,null,null,entity.position.x,entity.position.y,width,height);
    		    	};   
    		   	  	if(b.eDraw) {
    		   	  		b.draw(ctx);
    		   	  	}
    		    	if(e) for (var i = 0; i < e.length; i++) {
-   		    	  	e[i].post(ctx,null,null,null,null,null,entity.position.x,entity.position.y,entity.size.width,entity.size.height);
+   		    	  	e[i].post(ctx,null,null,null,null,null,entity.position.x,entity.position.y,width,height);
    		    	};   
    		   	  	continue;
 	   	   } catch(e) {}
@@ -11064,6 +11073,8 @@ GameEngineClass = Class.extend({
 				scene.factory['Entity'] = EntityClass; 
 				scene.setup();
 
+            if(params.gravity) scene.set("gravity", params.gravity);
+
 				return scene;
 
     	}
@@ -11136,8 +11147,15 @@ GameEngineClass = Class.extend({
 
     close: function(type, params) {
    		switch(type.toLowerCase()) {
-   			case "entity":
+   			case "scene":
+               if(params) this.scenes[params.id||this.activeScene].close();
+               else this.scenes[this.activeScene].close();
+               this.closed = true;
+               this.started = false;
+               if(params.onClose) params.onClose();
    				break;
+            case "entity":
+               break;
    		}
     },
 
@@ -11147,6 +11165,8 @@ GameEngineClass = Class.extend({
       			if(params) this.scenes[params.id||this.activeScene].start();
       			else this.scenes[this.activeScene].start();
                this.started = true;
+               this.closed = false;
+               if(params.onStart) params.onStart();
    				break;
       	}
     }, 
@@ -11193,36 +11213,34 @@ SceneEngineClass = Class.extend({
 
       this.Renderer = new RenderEngineClass(this.id, params.canvas); 
       if(params.WtoH || params.WtoH==0) this.Renderer.WtoH = params.WtoH;
-      this.InputManager = new InputEngineClass(this.id, params.canvas); 
- 
-      gMap = new TILEDMapClass();
+      this.InputManager = new InputEngineClass(this.id, params.canvas);  
 
       this.entityParams = {
       	auto: true,
-		id: null,
-		bodies: {
-			idle: {
-				x:0,
-            y:0,
-            z: 0,
-				width: 100,
-				height: 100,
-				offset: {x:0,y:0,z:0},
-				useImageSize: false,
-				showImage: true,
-				orientation: "right",
-				frames: [],  
-				id: null,
-				type: "static",
-				angle: 0,
-				color: "#d3d3d3",
-				strength: null,
+   		id: null,
+   		bodies: {
+   			idle: {
+   				x:0,
+               y:0,
+               z: 0,
+   				width: 100,
+   				height: 100,
+   				offset: {x:0,y:0,z:0},
+   				useImageSize: false,
+   				showImage: true,
+   				orientation: "right",
+   				frames: [],  
+   				id: null,
+   				type: "static",
+   				angle: 0,
+   				color: "#d3d3d3",
+   				strength: null,
 
-			}
-		}, 
-		idleBody: "idle",
-		zIndex: 0
-	}; 
+   			}
+   		}, 
+   		idleBody: "idle",
+   		zIndex: 0
+   	}; 
       
    },
 
@@ -11334,9 +11352,22 @@ SceneEngineClass = Class.extend({
 					params.bodies = { idle: { x: x, y:y, z:0, width: 100, height: 100,} };
 					params.idleBody = "idle";
 				}
-				if(params.auto){   
-        			params.bodies.idle.x = x;
-               params.bodies.idle.y = y;
+            if(!params.bodies.idle){    
+               console.log("Error: No idle body");
+               return;
+            }
+
+            if(!params.bodies.idle.x){
+               if(scene.activeCamera) {
+                  x = b2Math.RandomRange(this.cameras[this.activeCamera].position.x,this.cameras[this.activeCamera].position.x+this.cameras[this.activeCamera].size.width);
+               } 
+               params.bodies.idle.x = x; 
+            }
+            if(!params.bodies.idle.y){
+               if(scene.activeCamera) {
+                  y = b2Math.RandomRange(this.cameras[this.activeCamera].position.y,this.cameras[this.activeCamera].position.y+this.cameras[this.activeCamera].size.height);
+               } 
+               params.bodies.idle.y = y; 
             }
 
 				params = {
@@ -11548,10 +11579,15 @@ SceneEngineClass = Class.extend({
    delete: function(type, params) {
    		switch(type.toLowerCase()) {
    			case "entity":
-   				if ( this.entities[params.id] ) {
-					this.Physics.removeBody( params.id );
-					delete this.entities[params.id];
-				}
+   				if ( params && this.entities[params.id] ) {
+   					this.Physics.removeBody( params.id );
+   					delete this.entities[params.id];
+   				} else {
+                  for (var id in this.entities) {
+                     this.Physics.removeBody( id );
+                     delete this.entities[id];
+                  }
+               }
    				break;
 			case "event":
 				delete this.events[params.id];
@@ -11582,7 +11618,7 @@ SceneEngineClass = Class.extend({
     update: function (animStart) {
     	var e = this.eventListeners.onUpdate;
     	if(e) for (var i = 0; i < e.length; i++) {
-    	  	e[i].pre();
+    	  	e[i].pre({target:this});
     	  };  
     	  /*
     	for (var event in this.events) {   
@@ -11617,7 +11653,7 @@ SceneEngineClass = Class.extend({
          var eHover = this.entities[this.entityHover].eventListeners.onHover; 
          if(eHover) {
             for (var i = 0; i < eHover.length; i++) {
-               eHover[i].post();
+               eHover[i].post({target:this.entities[this.entityHover]});
             }; 
          }
       }
@@ -11801,7 +11837,7 @@ SceneEngineClass = Class.extend({
                  } else {
                      var e = This.eventListeners.onStart;
                      if(e) for (var i = 0; i < e.length; i++) {
-                        e[i].pre();
+                        e[i].pre({target:this});
                        };  
 
                      This.set("sort");
@@ -11818,10 +11854,11 @@ SceneEngineClass = Class.extend({
                      This.closed = false;
 
                      G.activeScene = This.id; 
+                     G.generisIntro = false;
 
                      var e = This.eventListeners.onUpdate;
                      if(e) for (var i = 0; i < e.length; i++) {
-                        e[i].post();
+                        e[i].post({target:this});
                      }; 
                  }
              }
@@ -11829,7 +11866,7 @@ SceneEngineClass = Class.extend({
       } else {
          var e = This.eventListeners.onStart;
          if(e) for (var i = 0; i < e.length; i++) {
-            e[i].pre();
+            e[i].pre({target:this});
            };  
 
          This.set("sort");
@@ -11849,7 +11886,7 @@ SceneEngineClass = Class.extend({
 
          var e = This.eventListeners.onUpdate;
          if(e) for (var i = 0; i < e.length; i++) {
-            e[i].post();
+            e[i].post({target:this});
          }; 
       }  
     },
@@ -11857,14 +11894,20 @@ SceneEngineClass = Class.extend({
     close: function() { 
     	var e = this.eventListeners.onClose;
     	if(e) for (var i = 0; i < e.length; i++) {
-    	  	e[i].pre();
+    	  	e[i].pre({target:this});
     	  };  
 
-		cancelAnimationFrame( this.updater ); 
+      this.closed = true;
+		cancelAnimationFrame( this.updater );
+      this.delete("entity");
+      this.setup();
+      this.Physics.update();   
+      this.Renderer.screenRefresh();
+      //this.DrawDebugData();
 
-    	var e = this.eventListeners.onUpdate;
+    	var e = this.eventListeners.onClose;
     	if(e) for (var i = 0; i < e.length; i++) {
-    	  	e[i].post();
+    	  	e[i].post({target:this});
     	  };  
     },  
 
@@ -11968,7 +12011,7 @@ CameraClass = Class.extend({
    update: function() { 
          var e = this.eventListeners.onUpdate;
          if(e) for (var i = 0; i < e.length; i++) {
-            e[i].pre();
+            e[i].pre({target:this});
          };  
          /*
          for (var event in This.events) {   
@@ -11997,7 +12040,7 @@ CameraClass = Class.extend({
          this.time++;
 
          if(e) for (var i = 0; i < e.length; i++) {
-         e[i].post();
+         e[i].post({target:this});
         }; 
       }
    
@@ -12104,10 +12147,11 @@ EntityClass = Class.extend({
 			}
 			param.offset = param.offset||{x:0,y:0,z:0};
 			param.useImageSize = param.useImageSize||false;
-			param.showImage = param.showImage||true;
-			param.orientation = param.orientation||"right";
-			param.frames = param.frames||[];
-			params.bodies[key] = param;
+			param.showImage = param.showImage==undefined?true:param.showImage;
+			param.flip = param.flip||"none";
+			param.frames = param.frames||[];  
+         param.eDebugDraw = param.eDebugDraw||false;
+         param.eDraw = param.eDraw==undefined?true:param.eDraw;
 		}
 
 		this.id = params.id ;
@@ -12115,9 +12159,7 @@ EntityClass = Class.extend({
 		this.activeBody = params.idleBody;
 		this.idleBody = params.idleBody;
 		this.zIndex = params.zIndex;
-		this.frame = 0 ;
-		this.eDebugDraw = params.eDraw&&false;
-		this.eDraw = params.eDraw==undefined?true:params.eDraw;
+		this.frame = 0 ; 
 
 		var param = this.bodies[this.activeBody]; 
 		param.id = params.id;
@@ -12127,17 +12169,24 @@ EntityClass = Class.extend({
 			y: param.y,
 			z: param.z,
 		}
-		this.size = {
-			width: param.width,
-			height: param.height
-		}
+      if(param.radius) this.size = {  radius: param.radius };
+      else if(param.polys) {
+
+      } else {
+         this.size = {
+            width: param.width,
+            height: param.height
+         }
+      }
+		
       if(this.zIndex==undefined||this.zIndex==null) this.zIndex = param.z;
 		this.offset = param.offset;
-		this.alpha = param.alpha;
-		this.offset = param.offset;
+		this.alpha = param.alpha; 
 		this.useImageSize = param.useImageSize;
 		this.showImage = param.showImage;
-		this.orientation = param.orientation;
+		this.flip = param.flip;
+      this.eDebugDraw = param.eDebugDraw;
+      this.eDraw = param.eDraw;
  		
     	this.entityDef = scene.gHelperEngine.Entity.build(param);  
     	this.entityDef.groupIndex = param.groupIndex || 1;
@@ -12154,7 +12203,14 @@ EntityClass = Class.extend({
      		if(!scene.activeCamera) return;
 			
          var  Width = This.size.width;
-			var  Height = This.size.height;
+         var  Height = This.size.height;
+         if(This.size.radius){
+            Width = This.size.radius*2;
+            Height = This.size.radius*2;
+         } else if(This.size.polys) {
+
+         }
+
 			var  Posx = This.position.x;// + (Width/2) ; 
 			var  Posy = This.position.y;// + (Height/2); 
 
@@ -12203,11 +12259,11 @@ EntityClass = Class.extend({
 			   		ctx.save();  
 					   e = this.eventListeners.shader;
                   if(e) for (var i = 0; i < e.length; i++) {
-                    e[i].pre.bind(this)(ctx, null, null, null, null, null, Posx - (Width||ww)/2, Posy - (Height||hh)/2, Width||ww , Height||hh);  
+                    e[i].pre.bind(this)({target:this, context:ctx, dx:Posx - (Width||ww)/2, dy:Posy - (Height||hh)/2, dWidth:Width||ww , dHeight:Height||hh});  
                   };  
 			        e = G.scenes[this.sceneId].eventListeners.shader;
                   if(e) for (var i = 0; i < e.length; i++) {
-                    e[i].pre.bind(this)(ctx, null, null, null, null, null, Posx - (Width||ww)/2, Posy - (Height||hh)/2, Width||ww , Height||hh);  
+                    e[i].pre.bind(this)({target:this, context:ctx, dx:Posx - (Width||ww)/2, dy:Posy - (Height||hh)/2, dWidth:Width||ww , dHeight:Height||hh});  
                   };  
 			        ctx.restore();  
 				} catch(e){}
@@ -12216,7 +12272,7 @@ EntityClass = Class.extend({
      	function update () { 
      		var e = This.eventListeners.onUpdate;
 	    	if(e) for (var i = 0; i < e.length; i++) {
-	    	  	e[i].pre();
+	    	  	e[i].pre({target:this});
 	    	};  
 	    	/*
 	    	for (var event in This.events) {   
@@ -12248,19 +12304,23 @@ EntityClass = Class.extend({
          position.z = this.position.z; 
          this.position = position;
 
+         this.body.eDebugDraw = this.eDebugDraw;
+         this.body.eDraw = this.eDraw;
+         this.body.zGroup = this.position.z;
+
          if(this.zIndex==undefined||this.zIndex==null) this.zIndex = position.z;
 
          var eHover = This.eventListeners.onHover;
          if(eHover && (G.scenes[this.sceneId].entityHover == this.id)) {
             for (var i = 0; i < eHover.length; i++) {
-               eHover[i].pre();
+               eHover[i].pre({target:this});
             }; 
          }
 
 			This.time++;
 
 			if(e) for (var i = 0; i < e.length; i++) {
-    	  	e[i].post();
+    	  	e[i].post({target:this});
     	  }; 
      	}
 
@@ -12308,6 +12368,19 @@ EntityClass = Class.extend({
                this.body.SetPosition(position);
                break;
             case "size":
+               if(params.radius) {
+                  this.size.radius = params.radius; 
+                  params.radius = params.radius/30; 
+                  this.body = scene.Physics.chngBodyFix(this.body, params);  
+               } else {
+                  var p = {};
+                  if(!params.width&&!params.width) return;
+                  this.size.width = params.width;
+                  this.size.height = params.height;
+                  if(params.width) p.halfWidth = params.width/60;
+                  if(params.height) p.halfHeight = params.height/60; 
+                  this.body = scene.Physics.chngBodyFix(this.body, p); 
+               }
                break;
    			case "offset":
    				if(params.position) this.offset.position = params.position;
@@ -12331,17 +12404,22 @@ EntityClass = Class.extend({
                   x: param.x,
                   y: param.y,
                   z: param.z,
-               }
-               this.size = {
-                  width: param.width,
-                  height: param.height
+               } 
+               if(param.radius) this.size = {  radius: param.radius };
+               else if(param.polys) {
+
+               } else {
+                  this.size = {
+                     width: param.width,
+                     height: param.height
+                  }
                }
                this.offset = param.offset;
                this.alpha = param.alpha;
                this.offset = param.offset;
                this.useImageSize = param.useImageSize;
                this.showImage = param.showImage;
-               this.orientation = param.orientation;
+               this.flip = param.flip;
                
                this.entityDef = scene.gHelperEngine.Entity.build(param);  
                this.entityDef.groupIndex = param.groupIndex||1;
@@ -13372,8 +13450,8 @@ InputEngineClass = Class.extend({
    bindings: {}, 
    actions: {}, 
    keysPoll:[],
-	events: {},
-	eventListeners: {}, 
+        events: {},
+        eventListeners: {}, 
    mousePos: {
       x: 0,
       y: 0
@@ -13397,7 +13475,7 @@ InputEngineClass = Class.extend({
       window.addEventListener('keypress', This.onKeyPress.bind(This));
 
       var keyCodes = { 3 : "break", 8 : "backspace / delete", 9 : "tab", 12 : 'clear', 13 : "enter", 16 : "shift", 17 : "ctrl", 18 : "alt", 19 : "pause/break", 20 : "caps lock", 27 : "escape", 32 : "spacebar", 33 : "page up", 34 : "page down", 35 : "end", 36 : "home", 37 : "left arrow", 38 : "up arrow", 39 : "right arrow", 40 : "down arrow", 41 : "select", 42 : "print", 43 : "execute", 44 : "Print Screen", 45 : "insert", 46 : "delete", 48 : "0", 49 : "1", 50 : "2", 51 : "3", 52 : "4", 53 : "5", 54 : "6", 55 : "7", 56 : "8", 57 : "9", 58 : ":", 59 : "semicolon (firefox), equals", 60 : "<", 61 : "equals (firefox)", 63 : "ß", 64 : "@ (firefox)", 65 : "a", 66 : "b", 67 : "c", 68 : "d", 69 : "e", 70 : "f", 71 : "g", 72 : "h", 73 : "i", 74 : "j", 75 : "k", 76 : "l", 77 : "m", 78 : "n", 79 : "o", 80 : "p", 81 : "q", 82 : "r", 83 : "s", 84 : "t", 85 : "u", 86 : "v", 87 : "w", 88 : "x", 89 : "y", 90 : "z", 91 : "Windows Key / Left ⌘ / Chromebook Search key", 92 : "right window key", 93 : "Windows Menu / Right ⌘", 96 : "numpad 0", 97 : "numpad 1", 98 : "numpad 2", 99 : "numpad 3", 100 : "numpad 4", 101 : "numpad 5", 102 : "numpad 6", 103 : "numpad 7", 104 : "numpad 8", 105 : "numpad 9", 106 : "multiply", 107 : "add", 108 : "numpad period (firefox)", 109 : "subtract", 110 : "decimal point", 111 : "divide", 112 : "f1", 113 : "f2", 114 : "f3", 115 : "f4", 116 : "f5", 117 : "f6", 118 : "f7", 119 : "f8", 120 : "f9", 121 : "f10", 122 : "f11", 123 : "f12", 124 : "f13", 125 : "f14", 126 : "f15", 127 : "f16", 128 : "f17", 129 : "f18", 130 : "f19", 131 : "f20", 132 : "f21", 133 : "f22", 134 : "f23", 135 : "f24", 144 : "num lock", 145 : "scroll lock", 160 : "^", 161: '!', 163 : "#", 164: '$', 165: 'ù', 166 : "page backward", 167 : "page forward", 169 : "closing paren (AZERTY)", 170: '*', 171 : "~ + * key", 173 : "minus (firefox), mute/unmute", 174 : "decrease volume level", 175 : "increase volume level", 176 : "next", 177 : "previous", 178 : "stop", 179 : "play/pause", 180 : "e-mail", 181 : "mute/unmute (firefox)", 182 : "decrease volume level (firefox)", 183 : "increase volume level (firefox)", 186 : "semi-colon / ñ", 187 : "equal sign", 188 : "comma", 189 : "dash", 190 : "period", 191 : "forward slash / ç", 192 : "grave accent / ñ", 193 : "?, / or °", 194 : "numpad period (chrome)", 219 : "open bracket", 220 : "back slash", 221 : "close bracket", 222 : "single quote", 223 : "`", 224 : "left or right ⌘ key (firefox)", 225 : "altgr", 226 : "< /git >", 230 : "GNOME Compose Key", 233 : "XF86Forward", 234 : "XF86Back", 255 : "toggle touchpad" }; 
-		for (var key in keyCodes) this.bind(key, keyCodes[key]); 
+                for (var key in keyCodes) this.bind(key, keyCodes[key]); 
    },
    
    delListeners: function(listeners) {
@@ -13433,16 +13511,17 @@ InputEngineClass = Class.extend({
    //-----------------------------
    onMouseMove: function (event) { 
    try {  
-   	  var SCALE = 30;
-      var scene = G.scenes[this.sceneId]; 
+        if(this.sceneId!=G.activeScene && G.scenes[this.sceneId].Renderer.canvas==G.scenes[G.activeScene].Renderer.canvas) return;
+      var SCALE = 30;
+      var scene = G.scenes[this.sceneId];
       if(!scene.activeCamera) return;
       var mouseX = (event.clientX - scene.Renderer.canvas.getBoundingClientRect().left);
       var mouseY = (event.clientY - scene.Renderer.canvas.getBoundingClientRect().top); 
       if( scene.Renderer.showWorld == false ) { 
-	      var rWidth = scene.Renderer.canvas.width/scene.cameras[scene.activeCamera].size.width;
-	      var rHeight = scene.Renderer.canvas.height/scene.cameras[scene.activeCamera].size.height; 
-	      mouseX = (( mouseX / rWidth ) + (scene.cameras[scene.activeCamera].position.x )) / SCALE ;
-	      mouseY = (( mouseY / rHeight ) + (scene.cameras[scene.activeCamera].position.y )) / SCALE ; 
+              var rWidth = scene.Renderer.canvas.width/scene.cameras[scene.activeCamera].size.width;
+              var rHeight = scene.Renderer.canvas.height/scene.cameras[scene.activeCamera].size.height; 
+              mouseX = (( mouseX / rWidth ) + (scene.cameras[scene.activeCamera].position.x )) / SCALE ;
+              mouseY = (( mouseY / rHeight ) + (scene.cameras[scene.activeCamera].position.y )) / SCALE ; 
       } else { 
          mouseX = ( mouseX ) / SCALE;
          mouseY = ( mouseY ) / SCALE; 
@@ -13450,33 +13529,34 @@ InputEngineClass = Class.extend({
       this.mousePos.x = mouseX*30;
       this.mousePos.y = mouseY*30;
 
-      var e = G.scenes[this.sceneId].eventListeners.onMouseMove;
+      var e = scene.eventListeners.onMouseMove;
       if(e) for (var i = 0; i < e.length; i++) {
-         e[i].pre.bind(G.scenes[this.sceneId])(this.mousePos); 
+         e[i].pre.bind(scene)({target:scene, mouse:this.mousePos}); 
       }; 
-      var b = G.scenes[this.sceneId].Physics.getBodyIdAt(this.mousePos.x, this.mousePos.y);
+      var b = scene.Physics.getBodyIdAt(this.mousePos.x, this.mousePos.y);
       if(!b) {  
          return;
       }  
-      e = G.scenes[this.sceneId].entities[b].eventListeners.onMouseMove; 
+      e = scene.entities[b].eventListeners.onMouseMove; 
       if(e) for (var i = 0; i < e.length; i++) {
-         e[i].pre.bind(G.scenes[this.sceneId].entities[b])(this.mousePos); 
+         e[i].pre.bind(scene.entities[b])({target:scene.entities[b], mouse:this.mousePos}); 
       }; 
    }catch(e) {}
    },
 
    onMouseDown: function (event) {
    try { 
-   	  var SCALE = 30;
-      var scene = G.scenes[this.sceneId]; 
+        if(this.sceneId!=G.activeScene && G.scenes[this.sceneId].Renderer.canvas==G.scenes[G.activeScene].Renderer.canvas) return;
+          var SCALE = 30;
+      var scene = G.scenes[this.sceneId];
       if(!scene.activeCamera) return;
       var mouseX = (event.clientX - scene.Renderer.canvas.getBoundingClientRect().left);
       var mouseY = (event.clientY - scene.Renderer.canvas.getBoundingClientRect().top); 
       if( scene.Renderer.showWorld == false ) { 
-	      var rWidth = scene.Renderer.canvas.width/scene.cameras[scene.activeCamera].size.width;
-	      var rHeight = scene.Renderer.canvas.height/scene.cameras[scene.activeCamera].size.height; 
-	      mouseX = (( mouseX / rWidth ) + (scene.cameras[scene.activeCamera].position.x )) / SCALE ;
-	      mouseY = (( mouseY / rHeight ) + (scene.cameras[scene.activeCamera].position.y )) / SCALE ; 
+              var rWidth = scene.Renderer.canvas.width/scene.cameras[scene.activeCamera].size.width;
+              var rHeight = scene.Renderer.canvas.height/scene.cameras[scene.activeCamera].size.height; 
+              mouseX = (( mouseX / rWidth ) + (scene.cameras[scene.activeCamera].position.x )) / SCALE ;
+              mouseY = (( mouseY / rHeight ) + (scene.cameras[scene.activeCamera].position.y )) / SCALE ; 
       } else { 
          mouseX = ( mouseX ) / SCALE;
          mouseY = ( mouseY ) / SCALE; 
@@ -13484,31 +13564,32 @@ InputEngineClass = Class.extend({
       this.mousePos.x = mouseX*30;
       this.mousePos.y = mouseY*30;
 
-      var e = G.scenes[this.sceneId].eventListeners.onMouseDown;
+      var e = scene.eventListeners.onMouseDown;
       if(e) for (var i = 0; i < e.length; i++) {
-         e[i].pre.bind(G.scenes[this.sceneId])(this.mousePos); 
+         e[i].pre.bind(scene)({target:scene, mouse:this.mousePos}); 
       }; 
-      var b = G.scenes[this.sceneId].Physics.getBodyIdAt(this.mousePos.x, this.mousePos.y);
+      var b = scene.Physics.getBodyIdAt(this.mousePos.x, this.mousePos.y);
       if(!b) return;
-      e = G.scenes[this.sceneId].entities[b].eventListeners.onMouseDown;
+      e = scene.entities[b].eventListeners.onMouseDown;
       if(e) for (var i = 0; i < e.length; i++) {
-         e[i].pre.bind(G.scenes[this.sceneId].entities[b])(this.mousePos); 
+         e[i].pre.bind(scene.entities[b])({target:scene.entities[b], mouse:this.mousePos}); 
       }; 
    }catch(e) {}
    },
 
    onMouseUp: function (event) { 
    try {  
-   	  var SCALE = 30;
-      var scene = G.scenes[this.sceneId]; 
+        if(this.sceneId!=G.activeScene && G.scenes[this.sceneId].Renderer.canvas==G.scenes[G.activeScene].Renderer.canvas) return;
+          var SCALE = 30;
+      var scene = G.scenes[this.sceneId];
       if(!scene.activeCamera) return;
       var mouseX = (event.clientX - scene.Renderer.canvas.getBoundingClientRect().left);
       var mouseY = (event.clientY - scene.Renderer.canvas.getBoundingClientRect().top); 
       if( scene.Renderer.showWorld == false ) { 
-	      var rWidth = scene.Renderer.canvas.width/scene.cameras[scene.activeCamera].size.width;
-	      var rHeight = scene.Renderer.canvas.height/scene.cameras[scene.activeCamera].size.height; 
-	      mouseX = (( mouseX / rWidth ) + (scene.cameras[scene.activeCamera].position.x )) / SCALE ;
-	      mouseY = (( mouseY / rHeight ) + (scene.cameras[scene.activeCamera].position.y )) / SCALE ; 
+              var rWidth = scene.Renderer.canvas.width/scene.cameras[scene.activeCamera].size.width;
+              var rHeight = scene.Renderer.canvas.height/scene.cameras[scene.activeCamera].size.height; 
+              mouseX = (( mouseX / rWidth ) + (scene.cameras[scene.activeCamera].position.x )) / SCALE ;
+              mouseY = (( mouseY / rHeight ) + (scene.cameras[scene.activeCamera].position.y )) / SCALE ; 
       } else { 
          mouseX = ( mouseX ) / SCALE;
          mouseY = ( mouseY ) / SCALE; 
@@ -13516,31 +13597,32 @@ InputEngineClass = Class.extend({
       this.mousePos.x = mouseX*30;
       this.mousePos.y = mouseY*30;
 
-      var e = G.scenes[this.sceneId].eventListeners.onMouseUp;
+      var e = scene.eventListeners.onMouseUp;
       if(e) for (var i = 0; i < e.length; i++) {
-         e[i].pre.bind(G.scenes[this.sceneId])(this.mousePos); 
+         e[i].pre.bind(scene)({target:scene, mouse:this.mousePos}); 
       }; 
-      var b = G.scenes[this.sceneId].Physics.getBodyIdAt(this.mousePos.x, this.mousePos.y);
+      var b = scene.Physics.getBodyIdAt(this.mousePos.x, this.mousePos.y);
       if(!b) return;
-      e = G.scenes[this.sceneId].entities[b].eventListeners.onMouseUp;
+      e = scene.entities[b].eventListeners.onMouseUp;
       if(e) for (var i = 0; i < e.length; i++) {
-         e[i].pre.bind(G.scenes[this.sceneId].entities[b])(this.mousePos); 
+         e[i].pre.bind(scene.entities[b])({target:scene.entities[b], mouse:this.mousePos}); 
       }; 
    }catch(e) {}
    }, 
 
    onClick: function (event) {
    try {   
-   	  var SCALE = 30;
-      var scene = G.scenes[this.sceneId]; 
+        if(this.sceneId!=G.activeScene && G.scenes[this.sceneId].Renderer.canvas==G.scenes[G.activeScene].Renderer.canvas) return;
+          var SCALE = 30;
+      var scene = G.scenes[this.sceneId];
       if(!scene.activeCamera) return;
       var mouseX = (event.clientX - scene.Renderer.canvas.getBoundingClientRect().left);
       var mouseY = (event.clientY - scene.Renderer.canvas.getBoundingClientRect().top); 
       if( scene.Renderer.showWorld == false ) { 
-	      var rWidth = scene.Renderer.canvas.width/scene.cameras[scene.activeCamera].size.width;
-	      var rHeight = scene.Renderer.canvas.height/scene.cameras[scene.activeCamera].size.height; 
-	      mouseX = (( mouseX / rWidth ) + (scene.cameras[scene.activeCamera].position.x )) / SCALE ;
-	      mouseY = (( mouseY / rHeight ) + (scene.cameras[scene.activeCamera].position.y )) / SCALE ; 
+              var rWidth = scene.Renderer.canvas.width/scene.cameras[scene.activeCamera].size.width;
+              var rHeight = scene.Renderer.canvas.height/scene.cameras[scene.activeCamera].size.height; 
+              mouseX = (( mouseX / rWidth ) + (scene.cameras[scene.activeCamera].position.x )) / SCALE ;
+              mouseY = (( mouseY / rHeight ) + (scene.cameras[scene.activeCamera].position.y )) / SCALE ; 
       } else { 
          mouseX = ( mouseX ) / SCALE;
          mouseY = ( mouseY ) / SCALE; 
@@ -13548,15 +13630,15 @@ InputEngineClass = Class.extend({
       this.mousePos.x = mouseX*30;
       this.mousePos.y = mouseY*30;
 
-      var e = G.scenes[this.sceneId].eventListeners.onClick; 
+      var e = scene.eventListeners.onClick; 
       if(e) for (var i = 0; i < e.length; i++) {
-         e[i].pre.bind(G.scenes[this.sceneId])(this.mousePos); 
+         e[i].pre.bind(scene)({target:scene, mouse:this.mousePos}); 
       }; 
-      var b = G.scenes[this.sceneId].Physics.getBodyIdAt(this.mousePos.x, this.mousePos.y);
+      var b = scene.Physics.getBodyIdAt(this.mousePos.x, this.mousePos.y);
       if(!b) return;
-      e = G.scenes[this.sceneId].entities[b].eventListeners.onClick;
+      e = scene.entities[b].eventListeners.onClick;
       if(e) for (var i = 0; i < e.length; i++) {
-         e[i].pre.bind(G.scenes[this.sceneId].entities[b])(this.mousePos); 
+         e[i].pre.bind(scene.entities[b])({target:scene.entities[b], mouse:this.mousePos}); 
       }; 
    }catch(e) {}  
    }, 
@@ -13564,6 +13646,8 @@ InputEngineClass = Class.extend({
    //-----------------------------
    onKeyDown: function (event) { 
    try { 
+        if(this.sceneId!=G.activeScene && G.scenes[this.sceneId].Renderer.canvas==G.scenes[G.activeScene].Renderer.canvas) return;
+      var scene = G.scenes[this.sceneId];
       var action = this.bindings[event.which || event.keyCode]; 
       if (action) {
          this.actions[action] = true; 
@@ -13571,9 +13655,9 @@ InputEngineClass = Class.extend({
       this.keysPoll[event.keyCode] = event.keyCode;
       var keysArray = this.getNumberArray(this.keysPoll);
 
-      var e = G.scenes[this.sceneId].eventListeners.onKeyDown; 
+      var e = scene.eventListeners.onKeyDown; 
       if(e) for (var i = 0; i < e.length; i++) {
-         e[i].pre.bind(G.scenes[this.sceneId])(action); 
+         e[i].pre.bind(scene)({target:scene, key:action}); 
       }; 
    }catch(e) {}
    },
@@ -13581,15 +13665,17 @@ InputEngineClass = Class.extend({
    //-----------------------------
    onKeyUp: function (event) { 
    try { 
+        if(this.sceneId!=G.activeScene && G.scenes[this.sceneId].Renderer.canvas==G.scenes[G.activeScene].Renderer.canvas) return;
+      var scene = G.scenes[this.sceneId];
       var action = this.bindings[event.which || event.keyCode]; 
       if (action) {
          this.actions[action] = false; 
       } 
       this.keysPoll[event.keyCode] = false; 
 
-      var e = G.scenes[this.sceneId].eventListeners.onKeyUp;
+      var e = scene.eventListeners.onKeyUp;
       if(e) for (var i = 0; i < e.length; i++) {
-         e[i].pre.bind(G.scenes[this.sceneId])(action); 
+         e[i].pre.bind(scene)({target:scene, key:action}); 
       };  
    }catch(e) {}  
    },
@@ -13597,15 +13683,17 @@ InputEngineClass = Class.extend({
    //-----------------------------
    onKeyPress: function (event) { 
    try { 
+        if(this.sceneId!=G.activeScene && G.scenes[this.sceneId].Renderer.canvas==G.scenes[G.activeScene].Renderer.canvas) return;
+      var scene = G.scenes[this.sceneId];
       var action = this.bindings[event.which || event.keyCode]; 
       if (action) {
          this.actions[action] = false; 
       } 
       this.keysPoll[event.keyCode] = false; 
 
-      var e = G.scenes[this.sceneId].eventListeners.onKeyPress;
+      var e = scene.eventListeners.onKeyPress;
       if(e) for (var i = 0; i < e.length; i++) {
-         e[i].pre.bind(G.scenes[this.sceneId])(action); 
+         e[i].pre.bind(scene)({target:scene, key:action}); 
       }; 
    }catch(e) {}
    },
@@ -13615,32 +13703,32 @@ InputEngineClass = Class.extend({
    },  
 
    add: function(type, params) {
-   		switch(type.toLowerCase()) {
-   			case "eventlistener":
-      			G.gameArea.addEventListener(params.id, params.event, params.useCapture&&true);
-   				break;
-   		}
+                switch(type.toLowerCase()) {
+                        case "eventlistener":
+                        G.gameArea.addEventListener(params.id, params.event, params.useCapture&&true);
+                                break;
+                }
    },
 
    set: function(type, params) {
-   		switch(type.toLowerCase()) {
-   			case "entity":
-   				break;
-   		}
+                switch(type.toLowerCase()) {
+                        case "entity":
+                                break;
+                }
    },
 
    get: function(type, params) {
-   		switch(type.toLowerCase()) {
-   			case "entity":
-   				break;
-   		}
+                switch(type.toLowerCase()) {
+                        case "entity":
+                                break;
+                }
    },
 
    delete: function(type, params) {
-   		switch(type.toLowerCase()) {
-   			case "entity":
-   				break;
-   		}
+                switch(type.toLowerCase()) {
+                        case "entity":
+                                break;
+                }
    },
 
 }); 
@@ -13686,15 +13774,31 @@ SoundManager = Class.extend({
          return this.clips[path].s;
       }
       
-      var clip = {s:new Sound(),b:null,l:false};
+      var clip = {s:new Sound(),b:null,l:false,type:"WAAPI"};
       this.clips[path] = clip;
       clip.s.path = path;
-   
-      var request = new XMLHttpRequest();
-      request.open('GET', path, true);
-      request.responseType = 'arraybuffer';
-      request.onload = function() {
-         gSM._context.decodeAudioData(request.response, 
+
+      // Create the XHR object. 
+      var xhr = new XMLHttpRequest();
+      xhr.withCredentials = true;  
+      if ("withCredentials" in xhr) {
+       // XHR for Chrome/Firefox/Opera/Safari.
+       xhr.open('GET', path, true);
+      } else if (typeof XDomainRequest != "undefined") {
+       // XDomainRequest for IE.
+       xhr = new XDomainRequest();
+       xhr.open(method, path);
+      } else {
+       // CORS not supported.
+       xhr = null;
+      } 
+
+      if (!xhr) {
+       alert('CORS not supported');
+       return;
+      }
+      xhr.onload = function() {
+         gSM._context.decodeAudioData(xhr.response, 
          function(buffer)
          {
             clip.b = buffer;
@@ -13704,11 +13808,17 @@ SoundManager = Class.extend({
          function(data)
          {
             console.log("failed");
-         });
-         
+         }); 
       }
-      request.send();
-      
+      xhr.onerror = function() {
+         clip.type = "jquery";
+         clip.b = document.createElement('audio');
+         clip.b.setAttribute('src', path);
+         clip.l = true;
+         if(callback) callback(clip.s); 
+
+      };
+      xhr.send(); 
       
       return clip.s;
       
@@ -13728,7 +13838,17 @@ SoundManager = Class.extend({
       if(this._mainNode.gain.value>0)
          this._mainNode.gain.value = 0;
       else 
-         this._mainNode.gain.value =1;
+         this._mainNode.gain.value = 1;
+
+      for(var path in this.clips){
+         var sd = this.clips[path];
+         if(sd.type=="jquery") {
+            if(sd.b.volume>0)
+               sd.b.volume = 0;
+            else 
+               sd.b.volume = gSM.volume;
+         }
+      }
    },
    //----------------------------
    stopAll: function( reload )
@@ -13737,6 +13857,11 @@ SoundManager = Class.extend({
       this._mainNode = this._context.createGain(0);
       this._mainNode.connect(this._context.destination);
       
+      for(var paths in this.clips){
+         var sd = this.clips[path];
+         if(sd.type=="jquery") sd.b.stop();
+      }
+
       if ( reload )  for ( var i = 0; i < reload.length; i++ ) playSoundInstance( reload[i] );
    },
    //----------------------------
@@ -13746,7 +13871,7 @@ SoundManager = Class.extend({
          return false;
       
       var looping = false;
-      var volume = 0.2;
+      var volume = gSM.volume;
       if(settings)
       {
          if(settings.looping) {
@@ -13761,18 +13886,28 @@ SoundManager = Class.extend({
       if(sd == null)
          return false;
       if(sd.l == false) return false;
+      if(sd.type=="WAAPI"){
+         var currentClip = gSM._context.createBufferSource(); // creates a sound source
+         currentClip.buffer = sd.b;                    // tell the source which sound to play
          
-      var currentClip = gSM._context.createBufferSource(); // creates a sound source
-      currentClip.buffer = sd.b;                    // tell the source which sound to play
-      
-      var gain = gSM._context.createGain();
-      currentClip.connect(gain);
-      gain.gain.value = volume;
- 
-      gain.connect(gSM._mainNode);
-      currentClip.loop = looping;
-      currentClip.start(0);                          // play the source now
-      this.playing[path] = currentClip;
+         var gain = gSM._context.createGain();
+         currentClip.connect(gain);
+         gain.gain.value = volume;
+    
+         gain.connect(gSM._mainNode);
+         currentClip.loop = looping;
+         currentClip.start(0);                          // play the source now
+         this.playing[path] = currentClip;
+      } else {
+         if(looping) { 
+            sd.b.addEventListener('ended', function() {
+                 this.currentTime = 0;
+                 this.play();
+             }, false); 
+         }
+         sd.b.volume = volume;
+         sd.b.play();
+      } 
       return true;
    },
 
@@ -13818,9 +13953,9 @@ Sound = Class.extend({
    init: function(  ) {
    },
    //----------------------------
-   play: function(loop) {
+   play: function(loop, volume) {
       
-       gSM.playSound(this.path,{ looping:loop, volume: gSM.volume });
+       gSM.playSound(this.path,{ looping:loop, volume: volume||gSM.volume });
    },
 
 
@@ -13848,7 +13983,7 @@ function playSoundInstance(soundpath, loop)
 }
 try { 
    var gSM = new SoundManager(); 
-} catch(e) {}
+} catch(e) { console.log("Failed to initialize SoundManager: " + e)}
 /* gSoundEngineClass.js End */
 
 
@@ -14052,8 +14187,13 @@ function __drawSpriteInternal(ctx, entity, spt, sheet, posX, posY, width, height
 		var img = sheet.img;
    		ctx.save(); 
    		ctx.translate(posX,posY);
-		if(entity.orientation=="left") ctx.rotate(-entity.body.GetAngle());  
-		else  ctx.rotate(entity.body.GetAngle());  
+		if(entity.flip=="horizontal") {
+         ctx.scale(-1,1);
+         ctx.rotate(-entity.body.GetAngle()); 
+      } else if(entity.flip=="vertical") {
+         ctx.scale(1,-1);  
+         ctx.rotate(-entity.body.GetAngle()); 
+      } else  ctx.rotate(entity.body.GetAngle());  
 	    ctx.translate(-posX,-posY); 
 	    if(entity.bodies[entity.activeBody].polys) {
 	    	posX += (width||ww)/2;
@@ -14062,18 +14202,18 @@ function __drawSpriteInternal(ctx, entity, spt, sheet, posX, posY, width, height
 		ctx.globalAlpha=entity.alpha;
       e1 = entity.eventListeners.shader; 
       if(e1) for (var i = 0; i < e1.length; i++) {
-        e1[i].pre.bind(entity)(ctx, img, xx, yy, ww, hh, posX - (width||ww)/2, posY - (height||hh)/2, width||ww , height||hh); 
+        e1[i].pre.bind(entity)({target:entity, context:ctx, image:img, sx:xx, sy:yy, sWidth:ww, sHeight:hh, dx:posX - (width||ww)/2, dy:posY - (height||hh)/2, dWidth:width||ww , dHeight:height||hh}); 
       }; 
       e2 = G.scenes[entity.sceneId].eventListeners.shader;
       if(e2) for (var i = 0; i < e2.length; i++) {
-        e2[i].pre.bind(entity)(ctx, img, xx, yy, ww, hh, posX - (width||ww)/2, posY - (height||hh)/2, width||ww , height||hh); 
+        e2[i].pre.bind(entity)({target:entity, context:ctx, image:img, sx:xx, sy:yy, sWidth:ww, sHeight:hh, dx:posX - (width||ww)/2, dy:posY - (height||hh)/2, dWidth:width||ww , dHeight:height||hh}); 
       };  
 		ctx.drawImage(img, xx, yy, ww, hh, posX - (width||ww)/2, posY - (height||hh)/2, width||ww , height||hh );
 		if(e1) for (var i = 0; i < e1.length; i++) {
-        e1[i].post.bind(entity)(ctx, img, xx, yy, ww, hh, posX - (width||ww)/2, posY - (height||hh)/2, width||ww , height||hh); 
+        e1[i].post.bind(entity)({target:entity, context:ctx, image:img, sx:xx, sy:yy, sWidth:ww, sHeight:hh, dx:posX - (width||ww)/2, dy:posY - (height||hh)/2, dWidth:width||ww , dHeight:height||hh}); 
       };  
       if(e2) for (var i = 0; i < e2.length; i++) {
-        e2[i].post.bind(entity)(ctx, img, xx, yy, ww, hh, posX - (width||ww)/2, posY - (height||hh)/2, width||ww , height||hh); 
+        e2[i].post.bind(entity)({target:entity, context:ctx, image:img, sx:xx, sy:yy, sWidth:ww, sHeight:hh, dx:posX - (width||ww)/2, dy:posY - (height||hh)/2, dWidth:width||ww , dHeight:height||hh}); 
       };  
       
       ctx.restore();   
@@ -14400,7 +14540,10 @@ var TILEDMapClass = Class.extend({
         }
     }
 
-});
+}); 
+try { 
+   var gMap = new TILEDMapClass();
+} catch(e) { console.log("Failed to initialize TILEDMapClass: " + e)}
 
 
 // Create the XHR object.
