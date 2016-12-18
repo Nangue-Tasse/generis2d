@@ -11221,8 +11221,17 @@ SceneEngineClass = Class.extend({
       this.Physics = new PhysicsEngineClass(this.id); 
         this.Physics.addContactListener({
          
-         BeginContact: function(idA, idB) {
-              // console.log( idA + " __ " + idB);
+			BeginContact: function(idA, idB) {
+		try {
+			 var e = This.entities[idA].eventListeners.onTouch;
+			 if(e) for (var i = 0; i < e.length; i++) {
+				e[i].pre({target:This.entities[idB]});
+			 };
+			 e = This.entities[idB].eventListeners.onTouch;
+			 if(e) for (var i = 0; i < e.length; i++) {
+				e[i].pre({target:This.entities[idA]});
+			 };
+		} catch(e) {}
             },
             
             PostSolve: function (bodyA, bodyB, impulse, contact) {
@@ -11243,14 +11252,20 @@ SceneEngineClass = Class.extend({
 
             real_point.y = body.GetWorldPoint(contact_point).y * 30; 
 
-                if (uA !== null) { 
-                    if ( entityA && entityA !== null && entityA.onTouch) {
-                        entityA.onTouch(bodyB, real_point, impulse);
+                if (uA !== null) {
+                    if ( entityA && entityA !== null) {
+		    	 var e = entityA.eventListeners.onTouch;
+			 if(e) for (var i = 0; i < e.length; i++) {
+				e[i].post({target:bodyB, point: real_point, impulse: impulse});
+			 };
                     }
                 } 
                 if (uB !== null) {
-                    if ( entityB && entityB !== null && entityB.onTouch) {
-                        entityB.onTouch(bodyA, real_point, impulse);
+                    if ( entityB && entityB !== null) {
+		    	 var e = entityB.eventListeners.onTouch;
+			 if(e) for (var i = 0; i < e.length; i++) {
+				e[i].post({target:bodyA, point: real_point, impulse: impulse});
+			 };
                     }
                 }
                  
@@ -11348,7 +11363,8 @@ SceneEngineClass = Class.extend({
 					zIndex: params.zIndex
 				};
 		        var entity = new (this.factory['Entity'])( this.id, params );
-		        this.entities[params.id] = entity;  
+		        this.entities[params.id] = entity; 
+				this.entities[params.id].INDEX = this.entitiesList.length;
               this.entitiesList.push(params.id); 
 		        return entity;
 		    
@@ -11552,10 +11568,12 @@ SceneEngineClass = Class.extend({
    			case "entity":
    				if ( params && this.entities[params.id] ) {
    					this.Physics.removeBody( params.id );
+					this.entitiesList.splice(this.entities[params.id].INDEX, 1);
    					delete this.entities[params.id];
    				} else {
                   for (var id in this.entities) {
                      this.Physics.removeBody( id );
+		     this.entitiesList.splice(this.entities[id].INDEX, 1);
                      delete this.entities[id];
                   }
                }
@@ -11620,7 +11638,7 @@ SceneEngineClass = Class.extend({
 		*/
 
       var b = this.Physics.getBodyIdAt(this.InputManager.mousePos.x, this.InputManager.mousePos.y);
-      if(this.entityHover && b!=this.entityHover){  
+      if(this.entityHover && b!=this.entityHover && this.entities[this.entityHover]){  
          var eHover = this.entities[this.entityHover].eventListeners.onHover; 
          if(eHover) {
             for (var i = 0; i < eHover.length; i++) {
@@ -12426,9 +12444,17 @@ EntityClass = Class.extend({
    },
 
    delete: function(type, params) {
+	   	var scene = G.scenes[this.sceneId];
+	   	if(!type) { 
+                     scene.Physics.removeBody( this.id );
+		     scene.entitiesList.splice(this.INDEX, 1);
+                     delete scene.entities[this.id];	
+		}
    		switch(type.toLowerCase()) {
    			case "entity":
-   				G.scenes[this.sceneId].delete(params);
+			        scene.Physics.removeBody( this.id );
+			        scene.entitiesList.splice(this.INDEX, 1);
+			        delete scene.entities[this.id];	
    				break;
 			case "event":
 				delete this.events[params.id];
