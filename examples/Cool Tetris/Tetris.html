@@ -1,0 +1,70 @@
+ 
+<!DOCTYPE html> 
+<html> 
+ 
+<head>  
+
+<title>Cool Tetris</title>
+<link rel="icon" type="image/gif" href="Media/Images/iconT.png" />
+<link rel='stylesheet' href='Libraries/css/mainStyle.css' /> 
+<script src='Libraries/js/generisGEngine.js'></script> 
+		<style>
+			
+			html, body { 
+				height:100%; width:100%;
+				margin:0; padding:0;overflow: hidden; 
+				background: #000; 
+		 		background-image: url('Media/Images/TetrisImg.jpg') ; 
+			}  
+			img { width:100%; height:100%; }  
+			.toggleFull{
+				width: 50px;
+				height: 50px;
+				position: absolute;
+				left: 0;
+				bottom: 0;
+				z-index: 1000;
+			}
+
+			.toggleFull:hover{ 
+				cursor: pointer;
+
+				opacity: 0.75; 
+			  -webkit-animation-name: pulse; 
+			  -webkit-animation-duration: 0.5s; 
+			  -webkit-animation-iteration-count: 10; 
+			}
+
+			@-webkit-keyframes pulse {
+			  from {
+			    -webkit-transform: scale(1.0);
+			    opacity: 0.75;
+			  }
+			  50% {
+			    -webkit-transform: scale(1.2);
+			    opacity: 1.0;
+			  }
+			  to { 
+			    -webkit-transform: scale(1.0);
+			    opacity: 0.75;
+			  }
+			} 
+		</style>  
+  
+</head> 
+ 
+<body> 
+ 
+<div id='gameArea'>  
+<canvas id='game' ></canvas>  
+</div>  
+<div class="toggleFull" onclick="toggleFull()">
+	<img src='Media/Images/fullcreenImg.png' />
+</div> 
+
+<script src='Scripts/Cool Tetris.js'> </script>  
+
+</body> 
+ 
+</html> 
+			
